@@ -25,7 +25,7 @@ deleted, else the visualization questions are reprompted.
 
 
 ## Using the Script
-###**Before Using the Script**
+**Before Using the Script**
 The user must already have the three csv files needed to analyze a run (at least for 
 analyzing information from Sauron) which are the run.csv, battery_info.csv, and 
 stim_frames.csv and they must be in the correct directories (see Directory Structure) 
