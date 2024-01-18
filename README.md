@@ -2,14 +2,14 @@
 *by Grant Burley, Sello Lab UCSF*
 
 
-# # General Overview
+## General Overview
 This python script is designed to work in tandum with the behavioral profiling machines, 
 Sauron and MCAM, here in the Sello Lab at UCSF. It reads the data files from a set 
 directory structure and returns either text files with text information or pdf files 
 with graphs of the desired plots. 
 
 
-# # How it Works
+## How it Works
 The script was designed such that minimal or no understanding of the underlying code is 
 needed to use the script. Once it is called from the terminal, the user is guided 
 through a prompt in which the user input is checked against known answers whenever 
@@ -24,7 +24,7 @@ make more graphs from this data. If not, a new prompt is started with the old da
 deleted else the visualization questions are reprompted. 
 
 
-# # Using the Script
+## Using the Script
 **Before Using the Script**
 The user must already have the three csv files needed to analyze a run (at least for 
 analyzing information from Sauron) which are the run.csv, battery_info.csv, and 
@@ -38,7 +38,7 @@ by typing in "python Launch_Fish_Spectacles.py" or if on a mac its better to exp
 call python3 with "python3 Launch_Fish_Spectacles.py".
 
 
-# # Directory Structure
+## Directory Structure
 The Fish_Spectacles directory should be structured as follows
 Fish_Spectacles
 - SauronResults 
@@ -62,7 +62,7 @@ fodler needs both the battery csv and stimulus frames csv which are fomatted as
 All the other directories / subdirectories will be made by the script  
 
 
-# # Required Python Modules not in Base Python
+## Required Python Modules not in Base Python
 To use the script, these modules need to be installed if they have not already
 been installed on the computer. This can be done easily with pip.
 Modules (pip statement to run from terminal if needed)
@@ -70,7 +70,7 @@ Modules (pip statement to run from terminal if needed)
 - numpy ('pip install numpy')
 
 
-# # Questions or Help
+## Questions or Help
 Please contact Grant Burley in the Sello Lab
 
 
