@@ -21,7 +21,7 @@ the user on which graphs they want to make when necessary. If no further prompti
 needed to understand what files no make, the txt or pdf file is made in their respective 
 output directories. After the files are made, the user is prompted if they would like to
 make more graphs from this data. If not, a new prompt is started with the old data 
-deleted else the visualization questions are reprompted. 
+deleted, else the visualization questions are reprompted. 
 
 
 ## Using the Script
