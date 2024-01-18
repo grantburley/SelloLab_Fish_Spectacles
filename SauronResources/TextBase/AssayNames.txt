@@ -1,0 +1,5 @@
+blank :: 30s,background
+background=300000,5min_background
+ habit_2s5x,2.5s Habituation Assay
+ gb_5s_habit_120,5s Habituation Assay
+ habit_10sx,10s Habituation Assay
