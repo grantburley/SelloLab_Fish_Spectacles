@@ -1,5 +1,4 @@
 from FishLog import Fish_Log
-from TextColors import Text_Colors
 import HardInformation
 
 
@@ -592,7 +591,7 @@ class Sauron_Secondary_Analysis():
 
         else:
             for group in split_dictionary.keys():
-                for assay in split_dictionary[assay].keys():
+                for assay in split_dictionary[group].keys():
                     if assay in habituation_assays:
                         assays_found.add(assay)
                         stimulus_dictionary = {}
@@ -661,7 +660,7 @@ class Sauron_Secondary_Analysis():
         x_vals = [x + 1 for x in range(len(mi_list))]
         
         slope, intercept = self.calculate_slope(x_vals, mi_list, intrcpt=True)
-        r_sq = self.calculate_r_squared(x_vals, mi_list, st_dev_list)
+        r_sq = self.calculate_r_squared(slope, intercept, x_vals, mi_list)
         avg_st_dev = self.calculate_avg_st_dev(st_dev_list)
 
         return slope, intercept, r_sq, avg_st_dev
@@ -694,25 +693,19 @@ class Sauron_Secondary_Analysis():
             return slope
     
 
-    def calculate_r_squared(self, x_list, mi_list, st_dev_list):
-        avg_mi = sum(mi_i / (stdi**2) for mi_i, stdi in zip(mi_list, st_dev_list)) / sum(1 / (stdi**2) for stdi in st_dev_list)
-        ss_total = sum((mi_i / (stdi**2) - avg_mi)**2 for mi_i, stdi in zip(mi_list, st_dev_list))
-        ss_residual = sum((mi_i / (stdi**2) - self.calculate_slope(x_list, mi_list) * xi / (stdi**2))**2 for xi, mi_i, stdi in zip(x_list, mi_list, st_dev_list))
+    def calculate_r_squared(self, slope, intercept, x_list, mi_list):
+        avg_mi = sum(mi_list) / len(mi_list)
+        mi_mean_dev_sum_sq = sum([(mi - avg_mi)**2 for mi in mi_list])
+        slope_mi = [x*slope + intercept for x in x_list] 
+        slope_mean_dev_sum_sq = sum([(slp_mi - avg_mi)**2 for slp_mi in slope_mi])
         
-        if ss_total == 0:
-            r_squared = 0
-        else:
-            r_squared = 1 - (ss_residual / ss_total)
-        
-        return r_squared
+        return slope_mean_dev_sum_sq / mi_mean_dev_sum_sq
     
 
     def calculate_avg_st_dev(self, st_dev_list):
         n = len(st_dev_list)
         sq_val = [st_dev**2 for st_dev in st_dev_list]
-        avg_sq = sum(sq_val) / n
-        avg = avg_sq ** 0.5
-        #avg = sum(st_dev_list) / len(st_dev_list)
+        avg = (sum(sq_val) / n)**0.5
 
         return avg
 

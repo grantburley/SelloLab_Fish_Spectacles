@@ -47,7 +47,7 @@ class Sauron_Text_Visualization():
     # % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ %
 
 
-    save_directory = "SauronResults/TxtOutput/"
+    save_directory = "SauronResults/TextOutput/"
 
 
     def __init__(self, run_number, analysis_type, battery_info, name_file, user_file, treatments=None, concentration_dict=None, habituation_dict=None):
@@ -79,11 +79,10 @@ class Sauron_Text_Visualization():
     def make_filename(self):
         if self.user_file:
             return f"{self.user_file}"
-        elif isinstance(self.run_number, int):
-            return f"{self.datetime_date}_RUN_{self.run_number}_{self.analysis_type}" 
+        elif self.analysis_type == 'battery':
+            return f"{self.datetime_date}_BATTERY_{self.battery_info.battery_number}_{self.analysis_type}" 
         else:
-            return f"{self.datetime_date}_RUNS_{'_'.join([str(run_number) for run_number in self.run_number])}_{self.analysis_type}"
-
+            return f"{self.datetime_date}_RUN_{self.run_number}_{self.analysis_type}" 
 
     
     def filename_helper(self, filename, extension):
@@ -123,7 +122,7 @@ class Sauron_Text_Visualization():
 
 
     def treatment_details(self):
-        return '\n'.join([f"\n{treatment}\n" + '\n'.join([f"\t-{concentration}" for concentration in self.concentration_dict[treatment]]) for treatment in self.treatments])
+        return '\n'.join([f"\n{treatment}\n" + '\n'.join([f"\t{concentration}uM" for concentration in self.concentration_dict[treatment]]) for treatment in self.treatments])
         
 
     def battery_details(self, stimulus=False):
@@ -313,10 +312,10 @@ class Sauron_Plot_Visualization():
     def generate_filename(self):
         if self.user_file:
             return f"{self.user_file}"
-        elif isinstance(self.run_number, int):
-            return f"{self.datetime_date}_RUN_{self.run_number}_{self.plot_type_string}_{self.analysis_calculations}" 
         else:
-            return f"{self.datetime_date}_RUNS_{'_'.join([str(run_number) for run_number in self.run_number])}_{self.plot_type_string}_{self.analysis_calculations}"
+            return f"{self.datetime_date}_RUN_{self.run_number}_{self.plot_type_string}_{self.analysis_calculations}" 
+        #else:
+        #    return f"{self.datetime_date}_RUNS_{'_'.join([str(run_number) for run_number in self.run_number])}_{self.plot_type_string}_{self.analysis_calculations}"
         
 
     def filename_helper(self, filename, extension):

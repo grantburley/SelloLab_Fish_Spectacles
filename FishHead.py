@@ -1,6 +1,4 @@
 import os
-import sys
-import traceback
 
 import FishBrain
 from FishLog import Fish_Log
@@ -18,8 +16,8 @@ from TextColors import Text_Colors
 
 
 script_name = "Fish Spectacles"
-script_version = "0.3.0"
-updated_date = "2024/01/17"
+script_version = "0.3.1"
+updated_date = "2024/01/22"
 script_version_write_date = "2023/12/11" # start
 
 fish_logger = Fish_Log()
@@ -91,7 +89,7 @@ class Fish_Face():
         'visualize_secondary' : ['yes', 'no']
     }
 
-    user_responses = {
+    none_responses = {
         'analysis_machine' : None,
         'analysis_type' : None,
         'run_number' : None,
@@ -152,6 +150,7 @@ class Fish_Face():
     
     @user_is_alive_check
     def live_fish(self):
+        self.user_responses = Fish_Face.none_responses.copy()
         self.analysis_prompt()
         
         if not self.alive:
@@ -256,14 +255,14 @@ class Fish_Face():
         
 
     def graph_prompt(self, treatments, assays, cncs=None):
+        self.prompt_package('specific_treatment')
+        
+        if self.user_responses['specific_treatment'] == 'treatment':
+            self.user_treatment(treatments)
+        elif self.user_responses['specific_treatment'] == 'treatment-concentration':
+            self.user_treatment(treatments, concentration_dict=cncs)
+            
         if self.user_responses['analysis_calculations'] == 'split' or self.user_responses['analysis_calculations'] == 'full': 
-            self.prompt_package('specific_treatment')
-            
-            if self.user_responses['specific_treatment'] == 'treatment':
-                self.user_treatment(treatments)
-            elif self.user_responses['specific_treatment'] == 'treatment-concentration':
-                self.user_treatment(treatments, concentration_dict=cncs)
-            
             self.prompt_package('specific_assay')
             
             if self.user_responses['specific_assay'] == 'yes':
@@ -567,27 +566,27 @@ class Fish_Face():
         well_string = f'''{Text_Colors.NORMAL}
             some common grouping of wells :
                 - by row
-            A01 A02 A03 A04 A05 A06 A07 A08 A09 A10 A11 A12
-            B01 B02 B03 B04 B05 B06 B07 B08 B09 B10 B11 B12
-            C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12
-            D01 D02 D03 D04 D05 D06 D07 D08 D09 D10 D11 D12
-            E01 E02 E03 E04 E05 E06 E07 E08 E09 E10 E11 E12
-            F01 F02 F03 F04 F05 F06 F07 F08 F09 F10 F11 F12
-            G01 G02 G03 G04 G05 G06 G07 G08 G09 G10 G11 G12
-            H01 H02 H03 H04 H05 H06 H07 H08 H09 H10 H11 H12
+            A01, A02, A03, A04, A05, A06, A07, A08, A09, A10, A11, A12
+            B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12
+            C01, C02, C03, C04, C05, C06, C07, C08, C09, C10, C11, C12
+            D01, D02, D03, D04, D05, D06, D07, D08, D09, D10, D11, D12
+            E01, E02, E03, E04, E05, E06, E07, E08, E09, E10, E11, E12
+            F01, F02, F03, F04, F05, F06, F07, F08, F09, F10, F11, F12
+            G01, G02, G03, G04, G05, G06, G07, G08, G09, G10, G11, G12
+            H01, H02, H03, H04, H05, H06, H07, H08, H09, H10, H11, H12
                 - by column
-            A01 B01 C01 D01 E01 F01 G01 H01
-            A02 B02 C02 D02 E02 F02 G02 H02
-            A03 B03 C03 D03 E03 F03 G03 H03
-            A04 B04 C04 D04 E04 F04 G04 H04
-            A05 B05 C05 D05 E05 F05 G05 H05
-            A06 B06 C06 D06 E06 F06 G06 H06
-            A07 B07 C07 D07 E07 F07 G07 H07
-            A08 B08 C08 D08 E08 F08 G08 H08
-            A09 B09 C09 D09 E09 F09 G09 H09
-            A10 B10 C10 D10 E10 F10 G10 H10
-            A11 B11 C11 D11 E11 F11 G11 H11
-            A12 B12 C12 D12 E12 F12 G12 H12
+            A01, B01, C01, D01, E01, F01, G01, H01
+            A02, B02, C02, D02, E02, F02, G02, H02
+            A03, B03, C03, D03, E03, F03, G03, H03
+            A04, B04, C04, D04, E04, F04, G04, H04
+            A05, B05, C05, D05, E05, F05, G05, H05
+            A06, B06, C06, D06, E06, F06, G06, H06
+            A07, B07, C07, D07, E07, F07, G07, H07
+            A08, B08, C08, D08, E08, F08, G08, H08
+            A09, B09, C09, D09, E09, F09, G09, H09
+            A10, B10, C10, D10, E10, F10, G10, H10
+            A11, B11, C11, D11, E11, F11, G11, H11
+            A12, B12, C12, D12, E12, F12, G12, H12
 
         '''
         
@@ -648,13 +647,13 @@ class Fish_Face():
                     not_found = True
 
             if not_found:
-                self.custom_response(prompt)
+                return self.custom_response(prompt)
             else:
                 return group_name, well_list
         
         else:
             print(f'{Text_Colors.NORMAL}\tI am sorry I did not understand your response formatting : {response}\n\tPlease try again')
-            self.custom_response(prompt)
+            return self.custom_response(prompt)
 
 
     @user_is_alive_check
