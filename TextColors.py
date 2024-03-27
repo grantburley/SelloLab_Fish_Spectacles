@@ -23,6 +23,7 @@ class Text_Colors():
 
     NORMAL = '\033[36m' # blue
     WARNING = '\033[91m' # red
+    CAUTION = '\033[33m' # yellow / orange
     DEFAULT = '\033[0m' # gray
     RESOLVE = '\033[92m' # green
 

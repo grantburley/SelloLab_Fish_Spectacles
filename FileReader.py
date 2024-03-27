@@ -82,8 +82,12 @@ class Sauron_Run_Reader():
         self.read_run_csv()
 
         fish_logger.log(Fish_Log.INFO, f"Treatment Name Replacements {', '.join(f'{well_name} replaced {old_name} : {new_name}' for well_name, old_name, new_name in self.replaced_treatment_names)}")
+        
         if self.unknown_treatments:
-            fish_logger.log(Fish_Log.WARNING, f"Could Not Find Treatment(s) {', '.join([unknwn for unknwn in self.unknown_treatments])}")
+            if not self.warning:
+                self.warning = ('UNKNOWN_TREATMENT', self.unknown_treatments)
+            
+            #fish_logger.log(Fish_Log.WARNING, f"Could Not Find Treatment(s) {', '.join([unknwn for unknwn in self.unknown_treatments])}")
         
 
     def read_run_csv(self):
@@ -118,9 +122,9 @@ class Sauron_Run_Reader():
                 fish_logger.log(Fish_Log.INFO, f'Run Path {run_path}, Number Frames {self.n_frames}, Battery Number {self.battery_number}, Run Csv Dict Made {True if self.csv_well_dict else False}')
 
         else:
-            fish_logger.log(Fish_Log.LETHAL, f'UNABLE TO FIND RUN CSV FOR {self.run_number} AT PATH {run_path}')
+            fish_logger.log(Fish_Log.WARNING, f'UNABLE TO FIND RUN CSV FOR {self.run_number} AT PATH {run_path}')
 
-            self.warning = 'NO_RUN_CSV'
+            self.warning = ('NO_RUN_CSV', self.run_number, self.load_directory, run_path)
 
 
     def load_treatment_names(self):
@@ -142,7 +146,7 @@ class Sauron_Run_Reader():
                 treatment = self.treatment_dict[treatment]
             
             else:
-                self.unknown_treatments.append((well, treatment, concentration))
+                self.unknown_treatments.append((well, treatment, self.concentration_equalizer(concentration, units)))
 
             treatments.append((treatment, self.concentration_equalizer(concentration, units)))
 
@@ -260,8 +264,8 @@ class Sauron_Battery_Reader():
                 fish_logger.log(Fish_Log.INFO, f"Battery Csv Path {battery_path}, Battery Titles {battery_titles}, Battery Csv Dict Made {True if self.raw_battery else False}")
 
         else:
-            fish_logger.log(Fish_Log.LETHAL, f"UNABLE TO FIND BATTERY CSV FOR {self.battery_number} AT PATH {battery_path}")
-            self.warning = 'NO_BATTERY_CSV'
+            fish_logger.log(Fish_Log.WARNING, f"UNABLE TO FIND BATTERY CSV FOR {self.battery_number} AT PATH {battery_path}")
+            self.warning = ('NO_BATTERY_CSV', self.battery_number, self.load_directory, battery_path)
             
 
     @is_warning_check
@@ -316,8 +320,9 @@ class Sauron_Battery_Reader():
             fish_logger.log(Fish_Log.INFO, f'Stim Frames Csv Path {stimuli_frames_path}, Made Raw Stim List {True if self.raw_stim_list else False}')
 
         else:
-            fish_logger.log(Fish_Log.LETHAL, f'UNABLE TO FIND STIM FRAMES CSV FOR {self.battery_number} AT PATH {stimuli_frames_path}')
-            self.warning = 'NO_STIM_FRAME_CSV'
+            fish_logger.log(Fish_Log.WARNING, f'UNABLE TO FIND STIM FRAMES CSV FOR {self.battery_number} AT PATH {stimuli_frames_path}')
+            self.warning = ('NO_STIM_FRAME_CSV', self.battery_number, self.load_directory, stimuli_frames_path)
+
 
     def load_assay_names(self):
         textbase = HardInformation.Information_Textbase('AssayNames')

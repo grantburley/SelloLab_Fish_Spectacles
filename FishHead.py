@@ -16,8 +16,8 @@ from TextColors import Text_Colors
 
 
 script_name = "Fish Spectacles"
-script_version = "0.3.1"
-updated_date = "2024/01/22"
+script_version = "0.3.3"
+updated_date = "2024/03/25"
 script_version_write_date = "2023/12/11" # start
 
 fish_logger = Fish_Log()
@@ -117,6 +117,7 @@ class Fish_Face():
         self.split_str = '+'
 
         self.prompt_filter_maker()
+        self.warning_response_maker()
 
         self.welcome_user()
         self.usage_detail()
@@ -147,6 +148,13 @@ class Fish_Face():
             
         return is_alive_check
     
+
+    def new_fish(self):
+        del self.analysis
+        print(f'{Text_Colors.NORMAL}]\n\n\t**********************\n\tStarting a New Prompt\n\t**********************\n')
+        self.usage_detail()
+        self.live_fish()
+
     
     @user_is_alive_check
     def live_fish(self):
@@ -155,23 +163,26 @@ class Fish_Face():
         
         if not self.alive:
             return
-        analysis = FishBrain.Fish_Analysis(self.user_responses, self.split_str)
+        self.analysis = FishBrain.Fish_Analysis(self.user_responses, self.split_str)
 
-        if analysis.warning:
-            return # i am going to do something diffent here eventually
-
+        if self.analysis.warning:
+            self.warning_handler(self.analysis.warning) 
+        
+        if not self.alive:
+            return
+    
         if self.user_responses['analysis_type'] != 'battery' and self.user_responses['analysis_type'] != 'preview':    
             if self.user_responses['analysis_group'] == 'treatment':
-                self.graph_prompt(analysis.analyzed_info.treatments, analysis.battery_info.assays, cncs=analysis.analyzed_info.concentration_dict)
+                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays, cncs=self.analysis.analyzed_info.concentration_dict)
             else:
-                self.graph_prompt(analysis.analyzed_info.treatments, analysis.battery_info.assays)
+                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays)
             
         if not self.alive:
             return
-        analysis.visualize_information(self.user_responses)
+        self.analysis.visualize_information(self.user_responses)
         
-        if analysis.warning:
-            return # i am going to do something diffent here eventually
+        if self.analysis.warning:
+            self.warning_handler(self.analysis.warning)
         
         self.n_files_analyzed += 1
         
@@ -182,31 +193,25 @@ class Fish_Face():
                 
                 if self.alive:
                     if continue_response:
-                        self.live_fish_loop(ask_continue_str, analysis)
+                        self.live_fish_loop(ask_continue_str)
 
         if self.alive:
-            del analysis
-            print(f'{Text_Colors.NORMAL}]\n\n\t**********************\n\tStarting a New Prompt\n\t**********************\n')
-            self.usage_detail()
-            self.live_fish()
-
-        
-            
+            self.new_fish()
         
 
     @user_is_alive_check
-    def live_fish_loop(self, ask_str, analysis_obj):
+    def live_fish_loop(self, ask_str):
         continue_analysis = True
         while continue_analysis:    
             if self.user_responses['analysis_group'] == 'treatment':
-                self.graph_prompt(analysis_obj.analyzed_info.treatments, analysis_obj.battery_info.assays, cncs=analysis_obj.analyzed_info.concentration_dict)
+                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays, cncs=self.analysis.analyzed_info.concentration_dict)
             else:
-                self.graph_prompt(analysis_obj.analyzed_info.treatments, analysis_obj.battery_info.assays)
+                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays)
 
             if not self.alive:
                 return
             
-            analysis_obj.visualize_information(self.user_responses)
+            self.analysis.visualize_information(self.user_responses)
 
             continue_analysis = self.check_continue(ask_str)
             if not self.alive:
@@ -698,48 +703,211 @@ class Fish_Face():
         self.user_responses['user_habituation'] = result
 
 
-    # not yet implemented! coming soon
-    def warning_handler(self, warning_str):
-        if warning_str in self.warning_response.keys():
-            self.warning_response[warning_str]()
+    def warning_handler(self, warning_tup):
+        if warning_tup[0] in self.warning_response.keys():
+            self.warning_response[warning_tup[0]](warning_tup)
         else:
             self.alive = False
 
 
-    # not yet implemented! coming soon
     def warning_response_maker(self):
         self.warning_response = {
             'NO_RUN_CSV' : self.no_run_csv_response,
             'NO_BATTERY_CSV' : self.no_battery_csv_response,
             'NO_STIM_FRAME_CSV' : self.no_stim_frame_csv_response,
             'UNKNOWN_TREATMENT' : self.unknown_treatment_response,
-            'NO_STIM_RESPONSES' : self.no_stim_responses_response,
             'FILENAME_HELPER' : self.filename_helper_response
         }
 
 
-    def no_run_csv_response(self):
-        pass
+    def no_run_csv_response(self, warning_tuple):
+        warning_string = f"""{Text_Colors.WARNING}
+            Oh No! I was not able to find the run csv! 
+            I was looking for run number, {warning_tuple[1]}, 
+            in the location, {warning_tuple[2]},
+            with the path, {warning_tuple[3]}.
+            
+            You can check the folder to either fix the name 
+                / add the file to the location
+            or run the script with different run number
+
+            
+            rerun : rechecks for same run csv 
+                (assuming the issue has been resolved by the user)
+            new : start new prompt
+        """
+
+        decision = input(f'{warning_string}\n-->').strip().lower()
+
+        fish_logger.log(Fish_Log.INFO, f'user_decision {decision}')
+
+        if decision == 'rerun':
+            self.analysis.no_run_csv_pipe()
+        elif decision == 'new':
+            self.new_fish()
+        else:
+            confused = f"""{Text_Colors.WARNING}
+                I did not understand your response {decision}
+                Please input one of the following:
+                rerun, new
+
+                I am restarting the prompt\n
+            """
+
+            print(confused)
+            self.no_run_csv_response(warning_string)
+        
 
     
-    def no_battery_csv_response(self):
-        pass
+    def no_battery_csv_response(self, warning_tuple):
+        warning_string = f"""{Text_Colors.WARNING}
+            Oh No! I was not able to find the battery csv! 
+            I was looking for battery number, {warning_tuple[1]}, 
+            in the location, {warning_tuple[2]},
+            with the path, {warning_tuple[3]}.
+            
+            You can check the folder to either fix the name 
+                / add the file to the location
+            or run the script with different run/battery number
+
+            
+            rerun : rechecks for same battery csv 
+                (assuming the issue has been resolved by the user)
+            new : start new prompt
+        """
+
+        decision = input(f'{warning_string}\n-->').strip().lower()
+
+        fish_logger.log(Fish_Log.INFO, f'user_decision {decision}')
+
+        if decision == 'rerun':
+            self.analysis.no_battery_stimf_pipe()
+        elif decision == 'new':
+            self.new_fish()
+        else:
+            confused = f"""{Text_Colors.WARNING}
+                I did not understand your response {decision}
+                Please input one of the following:
+                rerun, new
+
+                I am restarting the prompt\n
+            """
+
+            print(confused)
+            self.no_battery_csv_response(warning_string)
 
 
-    def no_stim_frame_csv_response(self):
-        pass
+    def no_stim_frame_csv_response(self, warning_tuple):
+        warning_string = f"""{Text_Colors.WARNING}
+            Oh No! I was not able to find the stim frame csv! 
+            I was looking for battery number, {warning_tuple[1]}, 
+            in the location, {warning_tuple[2]},
+            with the path, {warning_tuple[3]}.
+            
+            You can check the folder to either fix the name 
+                / add the file to the location
+            or run the script with different run number
+
+            
+            rerun : rechecks for same battery csv 
+                (assuming the issue has been resolved by the user)
+            new : start new prompt
+        """
+
+        decision = input(f'{warning_string}\n-->').strip().lower()
+
+        fish_logger.log(Fish_Log.INFO, f'user_decision {decision}')
+
+        if decision == 'rerun':
+            self.analysis.no_battery_stimf_pipe()
+        elif decision == 'new':
+            self.new_fish()
+        else:
+            confused = f"""{Text_Colors.WARNING}
+                I did not understand your response {decision}
+                Please input one of the following:
+                rerun, new
+
+                I am restarting the previous prompt\n
+            """
+
+            print(confused)
+            self.no_stim_frame_csv_response(warning_string)
 
 
-    def unknown_treatment_response(self):
-        pass
+    def unknown_treatment_response(self, warning_tuple):
+        new_name_dict = {}
 
+        warning_string = f"""{Text_Colors.CAUTION}
+            Oh No! I was not able to find one or multiple treatment
+            name(s) in my knowledge! (textbase)
 
-    def no_stim_responses_response(self):
-        pass
+            Can you input what the names of these treatments are?
+            
+            ... 
+        """
+
+        print(warning_string)
+
+        unknown_trt_dict = self.unknown_treatment_sorter(warning_tuple[1])
+
+        for unknown_name in unknown_trt_dict.keys():
+            conc_str = "\n\t\t\t".join([f"{conc} : {unknown_trt_dict[unknown_name][conc]}" for conc in unknown_trt_dict[unknown_name].keys()])
+            prompt_string = f"""{Text_Colors.CAUTION}
+                NAME 
+                    CONCENTRATION : WELLS
+
+                {unknown_name}
+                    \t{conc_str} 
+
+                Input one of the following
+                    unknown : for (an) unknown treatment(s)
+                    treatment_name : known name (will be updated in textbase)
+            """ #yea the tabs of conc_str is really weird but it works ¯\_(ツ)_/¯ 
+
+            new_nm = input(f'{prompt_string}\n-->').strip().lower().replace(' ', '_')
+            
+            if new_nm in self.kill_words:
+                self.alive = False
+                return
+            elif new_nm == 'unknown':
+                new_name_dict[unknown_name] = unknown_name
+            else:
+                new_name_dict[unknown_name] = new_nm
+
+        fish_logger.log(Fish_Log.INFO, f'NEW TREATMENT NAME USER INPUT,  {",".join([f"{unk_nm} to {new_nm}" for unk_nm, new_name in new_name_dict.items()])}')
+
+        if not all(key == value for key, value in new_name_dict.items()):
+            self.analysis.unknwn_trt_pipe(new_name_dict)
+        else:
+            self.analysis.unknwn_trt_pipe()
 
     
-    def filename_helper_response(self):
-        pass
+    def unknown_treatment_sorter(self, unknown_treatment_list):
+        return_dict = {}
+        for well, unknown_name, concentration in unknown_treatment_list:
+            if unknown_name not in return_dict.keys():
+                return_dict.update({unknown_name : {concentration : [well] }})
+            elif concentration not in return_dict[unknown_name].keys():
+                return_dict[unknown_name].update({concentration : [well] })
+            else:
+                return_dict[unknown_name][concentration].append(well)
+        
+        return return_dict
+        
+
+    
+    def filename_helper_response(self, warning_tuple):
+        # max iter for current name has been exceded, need new name from user or override
+        # # (should be rare, low priority)
+        # print old name and ask for new
+        # run pipe 
+        warning_string = f"""{Text_Colors.WARNING}
+            Oh No! The max iteration for this file name has been exceeded (99)!
+            Numbers greater than this will require adjustments to the script
+
+            Please input another name for this file
+        """
 
 
     @staticmethod

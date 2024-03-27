@@ -90,7 +90,7 @@ class Sauron_Text_Visualization():
         name_iter = 1
 
         while not_fixed:
-            new_filename = f'{filename}_{name_iter:02d}'
+            new_filename = f'{filename}_{name_iter:02d}' #if numbers greater than 99 are desired, this needs to be changed!
             new_filepath = f'{self.save_directory}{new_filename}{extension}'
 
             if os.path.exists(new_filepath):
@@ -622,6 +622,8 @@ class Sauron_Plot_Visualization():
                 
 
     def graphing_singlular_group_line_dict(self):
+        # # # I AM PRETTY SURE THIS FUNCTION DOES NOT WORK !!! 
+        
         # line dict {f"title" : (average_mi_list, std_list)}
         a_type_plot = self.calc_indx-1
         if self.specific_assay == 'yes':
@@ -630,6 +632,8 @@ class Sauron_Plot_Visualization():
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_specific_groupings"
                 
             else:
+                #print(a_type_plot)
+                #print(self.final_information.split_dictionary.keys())
                 plot_dict = {f"{group}+{assay}" : (self.final_information.split_dictionary[group][assay][a_type_plot], self.final_information.split_dictionary[group][2]) for group in self.final_information.split_dictionary.keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_all_groupings"
                 

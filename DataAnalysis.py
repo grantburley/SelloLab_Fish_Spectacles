@@ -123,6 +123,8 @@ class Sauron_Primary_Analysis():
         self.treatments = None
         self.concentration_dict = None
 
+        self.warning = None
+
         self.load_adjust_frames()
 
         self.sorting()
@@ -549,11 +551,13 @@ class Sauron_Secondary_Analysis():
         self.sauron_primary_analysis = sauron_primary_analysis
         self.split_str = split_str
 
-        self.habituation_dictionary = None
-        self.cutoff_percentage = 0.07 # for determining habituation slope
+        self.warning = None
 
 
     def technical_habituation(self):
+        self.habituation_dictionary = None
+        self.cutoff_percentage = 0.07 # for determining habituation slope
+
         # require full calculations to call 
         habituation_dict = {}
         habituation_assays = ['10s Habituation Assay', '5s Habituation Assay', '2.5s Habituation Assay', 'softTap20sISI', 'softTap10sISI', 'softTap7sISI', 'softTap5sISI', 'softTap2pt5sISI', 'softTap1sISI']
@@ -630,7 +634,11 @@ class Sauron_Secondary_Analysis():
             stim_vals = []
             stim_st_devs = []
             for i, average_mi in enumerate(stimulus_average_list):
-                if average_mi > cutoff_value:
+                if average_mi == 0 and not stim_vals:
+                    # THIS SHOULD CATCH WHEN STIMULI ARE NOT PLAYED AT THE START OF THE ASSAY
+                    pass
+    
+                elif average_mi > cutoff_value:
                     drops = 0
                     stim_vals.append(average_mi)
                     stim_st_devs.append(stimulus_st_dev_list[i])

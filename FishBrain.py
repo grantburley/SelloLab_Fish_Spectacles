@@ -1,7 +1,7 @@
 import FileReader
 import DataAnalysis
 import DataVisualization
-#from FishLog import Fish_Log
+from HardInformation import Information_Textbase
 
 
 # % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % 
@@ -61,6 +61,10 @@ class Fish_Analysis():
             self.mcam_pipeline()
 
 
+    def warning_reset(self):
+        self.warning = None
+
+
     def visualize_information(self, user_response_dict):
         self.user_responses = user_response_dict
         if self.user_responses['analysis_type'] == 'battery':
@@ -97,34 +101,128 @@ class Fish_Analysis():
 
     def sauron_pipeline(self):
         if self.user_responses['analysis_type'] == 'battery':
-            self.battery_info = FileReader.Sauron_Battery_Reader(self.user_responses['battery_number'])
+            self.sauron_battery_funct(self.user_responses['battery_number'])
             
-            if self.battery_info.warning:
-                self.warning = self.battery_info.warning
-                return
+        else:
+            self.sauron_run_funct(self.user_responses['run_number'])
             
-        elif self.user_responses['analysis_type'] == 'preview' or self.user_responses['analysis_type'] == 'technical':
-            self.run_info = FileReader.Sauron_Run_Reader(self.user_responses['run_number'])
+            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+                self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
+
+            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+                self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
+                                        self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
+                                        self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+            
+            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+                if self.user_responses['secondary_calculations'] != 'no':
+                    self.sauron_secondary_analysis_funct()
+
+ 
+    def sauron_battery_funct(self, battery_number, n_frm=None):
+        self.battery_info = FileReader.Sauron_Battery_Reader(battery_number, n_frames=n_frm)
+            
+        if self.battery_info.warning:
+            self.warning = self.battery_info.warning
+            # DO SOMETHING HERE ? 
+
+
+    def sauron_run_funct(self, run_number):
+        self.run_info = FileReader.Sauron_Run_Reader(run_number)
         
-            if self.run_info.warning:
-                self.warning = self.run_info.warning
-                return
-            
-            self.battery_info = FileReader.Sauron_Battery_Reader(self.run_info.battery_number, n_frames=self.run_info.n_frames)
+        if self.run_info.warning:
+            self.warning = self.run_info.warning
+            # DO SOMETHING HERE ? 
 
-            if self.battery_info.warning:
-                self.warning = self.battery_info.warning
-                return
 
-            self.analyzed_info = DataAnalysis.Sauron_Primary_Analysis(self.user_responses['run_number'], self.user_responses['analysis_group'], 
-                                    self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
-                                    self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+    def sauron_analysis_funct(self, run_number, analysis_group, user_group, analysis_calc, csv_well_dict, battery_info, frame_rate):
+        self.analyzed_info = DataAnalysis.Sauron_Primary_Analysis(run_number, analysis_group, user_group, analysis_calc, csv_well_dict, 
+                                                                  battery_info, frame_rate)
+
+        if self.analyzed_info.warning:
+            self.warning = self.analyzed_info.warning
+            # DO SOMETHING HERE ?
+
+
+    def sauron_secondary_analysis_funct(self):
+        self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.analyzed_info, self.split_str)
         
         if self.user_responses['secondary_calculations'] == 'habituation':
-            self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.analyzed_info, self.split_str)
-            self.secondary_info.technical_habituation()
-                
+            self.sauron_habituation()
+
+        if self.secondary_info.warning:
+            self.warning = self.secondary_info.warning
+
+
+    def sauron_habituation(self):
+        self.secondary_info.technical_habituation()
+
+
+    def no_run_csv_pipe(self):
+        self.warning_reset()
+        
+        self.sauron_run_funct(self.user_responses['run_number'])
+        
+        if not self.warning:
+            self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
+
+        if not self.warning:
+            self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
+                                        self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
+                                        self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+        
+        if not self.warning and self.user_responses['secondary_calculations'] != 'no':
+                self.sauron_secondary_analysis_funct()
+
+
+    def no_battery_stimf_pipe(self):
+        self.warning_reset()
+
+        if self.user_responses['analysis_type'] == 'battery':
+            self.sauron_battery_funct(self.user_responses['battery_number'])
             
+        else:
+            self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
+
+            if not self.warning:
+                self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
+                                            self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
+                                            self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+
+            if not self.warning and self.user_responses['secondary_calculations'] != 'no':
+                self.sauron_secondary_analysis_funct()
+
+    
+    def unknwn_trt_pipe(self, user_name_dict=None):
+        self.warning_reset()
+
+        if user_name_dict:
+            treatment_textbase = Information_Textbase('TreatmentNames')
+            treatment_textbase.add_line_to_text(user_name_dict)
+
+            self.sauron_run_funct(self.user_responses['run_number'])
+
+            if not self.warning:
+                self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
+                                            self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
+                                            self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+            
+            if not self.warning and self.user_responses['secondary_calculations'] != 'no':
+                self.sauron_secondary_analysis_funct()
+        
+
+    def no_stim_pipe(self):
+        # call function to find index adjustment
+        # update textbase for index adjustments
+        # recall splitting analysis only, averaging should be fine (if poss)
+        self.warning_reset()
+
+
+    def filename_helper_pipe(self):
+        # recall vis with new name 
+        self.warning_reset()
+    
+
     def mcam_pipeline(self):
         pass
 

@@ -66,7 +66,7 @@ class Fish_Log():
             call_file_rel_path = os.path.relpath(call_file_full_path, fish_spectacles_dir)
             call_file_rel_path = call_file_rel_path.replace('..', '')[1:]
 
-            call_location = f"File : {call_file_rel_path}, Class : {call_class}, Function : {call_funct}"
+            call_location = f"CALL_FILE : {call_file_rel_path}, CALL_CLASS : {call_class}, CALL_FUNCTION : {call_funct}"
 
             if Fish_Log.CURRENT_STATUS < status:
                 Fish_Log.CURRENT_STATUS = status
