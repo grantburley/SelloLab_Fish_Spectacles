@@ -16,8 +16,8 @@ from TextColors import Text_Colors
 
 
 script_name = "Fish Spectacles"
-script_version = "0.3.3"
-updated_date = "2024/03/25"
+script_version = "0.3.7"
+updated_date = "2024/03/30"
 script_version_write_date = "2023/12/11" # start
 
 fish_logger = Fish_Log()
@@ -179,6 +179,7 @@ class Fish_Face():
             
         if not self.alive:
             return
+        
         self.analysis.visualize_information(self.user_responses)
         
         if self.analysis.warning:
@@ -703,11 +704,13 @@ class Fish_Face():
         self.user_responses['user_habituation'] = result
 
 
-    def warning_handler(self, warning_tup):
-        if warning_tup[0] in self.warning_response.keys():
-            self.warning_response[warning_tup[0]](warning_tup)
-        else:
-            self.alive = False
+    def warning_handler(self, warnings):
+        for warning_name in warnings.keys():
+            if warning_name in self.warning_response.keys():
+                self.warning_response[warning_name](warnings[warning_name])
+            else:
+                self.alive = False
+                break # might not actually want to do this? 
 
 
     def warning_response_maker(self):
@@ -723,9 +726,9 @@ class Fish_Face():
     def no_run_csv_response(self, warning_tuple):
         warning_string = f"""{Text_Colors.WARNING}
             Oh No! I was not able to find the run csv! 
-            I was looking for run number, {warning_tuple[1]}, 
-            in the location, {warning_tuple[2]},
-            with the path, {warning_tuple[3]}.
+            I was looking for run number, {warning_tuple[0]}, 
+            in the location, {warning_tuple[1]},
+            with the path, {warning_tuple[2]}.
             
             You can check the folder to either fix the name 
                 / add the file to the location
@@ -762,9 +765,9 @@ class Fish_Face():
     def no_battery_csv_response(self, warning_tuple):
         warning_string = f"""{Text_Colors.WARNING}
             Oh No! I was not able to find the battery csv! 
-            I was looking for battery number, {warning_tuple[1]}, 
-            in the location, {warning_tuple[2]},
-            with the path, {warning_tuple[3]}.
+            I was looking for battery number, {warning_tuple[0]}, 
+            in the location, {warning_tuple[1]},
+            with the path, {warning_tuple[2]}.
             
             You can check the folder to either fix the name 
                 / add the file to the location
@@ -800,9 +803,9 @@ class Fish_Face():
     def no_stim_frame_csv_response(self, warning_tuple):
         warning_string = f"""{Text_Colors.WARNING}
             Oh No! I was not able to find the stim frame csv! 
-            I was looking for battery number, {warning_tuple[1]}, 
-            in the location, {warning_tuple[2]},
-            with the path, {warning_tuple[3]}.
+            I was looking for battery number, {warning_tuple[0]}, 
+            in the location, {warning_tuple[1]},
+            with the path, {warning_tuple[2]}.
             
             You can check the folder to either fix the name 
                 / add the file to the location
@@ -835,7 +838,7 @@ class Fish_Face():
             self.no_stim_frame_csv_response(warning_string)
 
 
-    def unknown_treatment_response(self, warning_tuple):
+    def unknown_treatment_response(self, unknown_trts):
         new_name_dict = {}
 
         warning_string = f"""{Text_Colors.CAUTION}
@@ -849,7 +852,7 @@ class Fish_Face():
 
         print(warning_string)
 
-        unknown_trt_dict = self.unknown_treatment_sorter(warning_tuple[1])
+        unknown_trt_dict = self.unknown_treatment_sorter(unknown_trts)
 
         for unknown_name in unknown_trt_dict.keys():
             conc_str = "\n\t\t\t".join([f"{conc} : {unknown_trt_dict[unknown_name][conc]}" for conc in unknown_trt_dict[unknown_name].keys()])
@@ -894,12 +897,10 @@ class Fish_Face():
                 return_dict[unknown_name][concentration].append(well)
         
         return return_dict
-        
 
     
     def filename_helper_response(self, warning_tuple):
         # max iter for current name has been exceded, need new name from user or override
-        # # (should be rare, low priority)
         # print old name and ask for new
         # run pipe 
         warning_string = f"""{Text_Colors.WARNING}

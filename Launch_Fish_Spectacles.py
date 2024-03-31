@@ -32,7 +32,7 @@ except Exception as e:
     file_name = os.path.relpath(file_path, fish_spectacles_dir)
     file_name = file_name.replace('..', '')[1:]
 
-    fish_logger.log(Fish_Log.LETHAL, f"EXCEPTION {error_type} : {error_str}, FILE {file_name}, LINE {line_number}, CODE {code_line}, FUNCT {func_name}")
+    fish_logger.log(Fish_Log.LETHAL, f"EXCEPTION {error_type} : {error_str}, CALL_FILE {file_name}, CALL_FUNCTION {func_name}, LINE {line_number}, CODE {code_line}")
 
     FishHead.Fish_Face.unexpected_error_message()
 

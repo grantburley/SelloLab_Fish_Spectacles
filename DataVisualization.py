@@ -60,6 +60,8 @@ class Sauron_Text_Visualization():
         self.concentration_dict = concentration_dict
         self.habituation_dict = habituation_dict
 
+        self.warning = {}
+
         self.datetime_date = self.get_datetime()
 
         self.check_save_dir()
@@ -95,7 +97,7 @@ class Sauron_Text_Visualization():
 
             if os.path.exists(new_filepath):
                 if name_iter > 99:
-                    self.warning = 'FILENAME_HELPER'
+                    self.warning['FILENAME_HELPER'] = filename
                     return 
                 name_iter += 1
             else:
@@ -295,7 +297,7 @@ class Sauron_Plot_Visualization():
         self.datetime_date = self.get_datetime()
         self.plot_type_string = None # [ASSAYS_assayNames/full]_[mi_graph/stimuli_graph]_[all_treatment/specific_treatment].pdf
         
-        self.warning = None
+        self.warning = {}
 
         self.visualization_path()
 
@@ -328,7 +330,7 @@ class Sauron_Plot_Visualization():
 
             if os.path.exists(new_filepath):
                 if name_iter > 99:
-                    self.warning = 'FILENAME_HELPER'
+                    self.warning['FILENAME_HELPER'] = filename
                     return 
                 name_iter += 1
             else:

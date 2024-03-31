@@ -75,7 +75,7 @@ class Sauron_Run_Reader():
 
         self.replaced_treatment_names = []
         self.unknown_treatments = []
-        self.warning = None
+        self.warning = {}
 
         self.load_treatment_names()
 
@@ -84,8 +84,7 @@ class Sauron_Run_Reader():
         fish_logger.log(Fish_Log.INFO, f"Treatment Name Replacements {', '.join(f'{well_name} replaced {old_name} : {new_name}' for well_name, old_name, new_name in self.replaced_treatment_names)}")
         
         if self.unknown_treatments:
-            if not self.warning:
-                self.warning = ('UNKNOWN_TREATMENT', self.unknown_treatments)
+            self.warning['UNKNOWN_TREATMENT'] = self.unknown_treatments
             
             #fish_logger.log(Fish_Log.WARNING, f"Could Not Find Treatment(s) {', '.join([unknwn for unknwn in self.unknown_treatments])}")
         
@@ -124,7 +123,7 @@ class Sauron_Run_Reader():
         else:
             fish_logger.log(Fish_Log.WARNING, f'UNABLE TO FIND RUN CSV FOR {self.run_number} AT PATH {run_path}')
 
-            self.warning = ('NO_RUN_CSV', self.run_number, self.load_directory, run_path)
+            self.warning['NO_RUN_CSV'] = (self.run_number, self.load_directory, run_path)
 
 
     def load_treatment_names(self):
@@ -215,7 +214,7 @@ class Sauron_Battery_Reader():
         self.load_directory = 'SauronResources/SauronBatteryInfo'
 
         self.replaced_assay_names = []
-        self.warning = None
+        self.warning = {}
 
 
         self.load_assay_names()
@@ -265,7 +264,7 @@ class Sauron_Battery_Reader():
 
         else:
             fish_logger.log(Fish_Log.WARNING, f"UNABLE TO FIND BATTERY CSV FOR {self.battery_number} AT PATH {battery_path}")
-            self.warning = ('NO_BATTERY_CSV', self.battery_number, self.load_directory, battery_path)
+            self.warning['NO_BATTERY_CSV'] = (self.battery_number, self.load_directory, battery_path)
             
 
     @is_warning_check
@@ -321,7 +320,7 @@ class Sauron_Battery_Reader():
 
         else:
             fish_logger.log(Fish_Log.WARNING, f'UNABLE TO FIND STIM FRAMES CSV FOR {self.battery_number} AT PATH {stimuli_frames_path}')
-            self.warning = ('NO_STIM_FRAME_CSV', self.battery_number, self.load_directory, stimuli_frames_path)
+            self.warning['NO_STIM_FRAME_CSV'] = (self.battery_number, self.load_directory, stimuli_frames_path)
 
 
     def load_assay_names(self):

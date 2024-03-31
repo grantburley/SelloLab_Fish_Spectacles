@@ -45,9 +45,13 @@ class Fish_Analysis():
     
 
     def __init__(self, user_response_dict, split_str):
+        self.subconscious_warnings = ["NO_STIM"]
+        self.no_stim_i = 0  
+        self.no_stim_search_status = True
+
         self.user_responses = user_response_dict
         self.split_str = split_str
-        self.warning = None
+        self.warning = {}
 
         self.battery_info = None # class
         self.run_info = None # class
@@ -60,9 +64,17 @@ class Fish_Analysis():
         else:
             self.mcam_pipeline()
 
+        if self.warning: 
+            warning_list = list(self.warning.keys())
+            for warning_name in warning_list:
+                if warning_name in self.subconscious_warnings:
+                    if warning_name == 'NO_STIM':
+                        self.no_stim_pipe()
+                    # other "subconscious" (FishBrain not FishHead) warning handling here
 
-    def warning_reset(self):
-        self.warning = None
+
+    def warning_reset(self, warning_name):
+        del self.warning[warning_name]
 
 
     def visualize_information(self, user_response_dict):
@@ -106,15 +118,15 @@ class Fish_Analysis():
         else:
             self.sauron_run_funct(self.user_responses['run_number'])
             
-            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
 
-            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
                                         self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
                                         self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
             
-            if not self.warning or self.warning[0] == 'UNKNOWN_TREATMENT':
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 if self.user_responses['secondary_calculations'] != 'no':
                     self.sauron_secondary_analysis_funct()
 
@@ -123,25 +135,25 @@ class Fish_Analysis():
         self.battery_info = FileReader.Sauron_Battery_Reader(battery_number, n_frames=n_frm)
             
         if self.battery_info.warning:
-            self.warning = self.battery_info.warning
-            # DO SOMETHING HERE ? 
+            for warning in self.battery_info.warning:
+                self.warning[warning] = self.battery_info.warning[warning]
 
 
     def sauron_run_funct(self, run_number):
         self.run_info = FileReader.Sauron_Run_Reader(run_number)
         
         if self.run_info.warning:
-            self.warning = self.run_info.warning
-            # DO SOMETHING HERE ? 
+            for warning in self.run_info.warning:
+                self.warning[warning] = self.run_info.warning[warning]
 
 
     def sauron_analysis_funct(self, run_number, analysis_group, user_group, analysis_calc, csv_well_dict, battery_info, frame_rate):
         self.analyzed_info = DataAnalysis.Sauron_Primary_Analysis(run_number, analysis_group, user_group, analysis_calc, csv_well_dict, 
-                                                                  battery_info, frame_rate)
+                                                                  battery_info, frame_rate, self.no_stim_search_status)
 
         if self.analyzed_info.warning:
-            self.warning = self.analyzed_info.warning
-            # DO SOMETHING HERE ?
+            for warning in self.analyzed_info.warning:
+                self.warning[warning] = self.analyzed_info.warning[warning]
 
 
     def sauron_secondary_analysis_funct(self):
@@ -151,7 +163,8 @@ class Fish_Analysis():
             self.sauron_habituation()
 
         if self.secondary_info.warning:
-            self.warning = self.secondary_info.warning
+            for warning in self.secondary_info.warning:
+                self.warning[warning] = self.secondary_info.warning[warning]
 
 
     def sauron_habituation(self):
@@ -159,24 +172,24 @@ class Fish_Analysis():
 
 
     def no_run_csv_pipe(self):
-        self.warning_reset()
+        self.warning_reset('NO_RUN_CSV')
         
         self.sauron_run_funct(self.user_responses['run_number'])
         
-        if not self.warning:
+        if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
             self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
 
-        if not self.warning:
+        if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
             self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
                                         self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
                                         self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
         
-        if not self.warning and self.user_responses['secondary_calculations'] != 'no':
-                self.sauron_secondary_analysis_funct()
+        if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning and self.user_responses['secondary_calculations'] != 'no':
+            self.sauron_secondary_analysis_funct()
 
 
     def no_battery_stimf_pipe(self):
-        self.warning_reset()
+        self.warning_reset('NO_BATTERY_CSV')
 
         if self.user_responses['analysis_type'] == 'battery':
             self.sauron_battery_funct(self.user_responses['battery_number'])
@@ -184,17 +197,17 @@ class Fish_Analysis():
         else:
             self.sauron_battery_funct(self.run_info.battery_number, n_frm=self.run_info.n_frames)
 
-            if not self.warning:
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
                                             self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
                                             self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
 
-            if not self.warning and self.user_responses['secondary_calculations'] != 'no':
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning and self.user_responses['secondary_calculations'] != 'no':
                 self.sauron_secondary_analysis_funct()
 
     
     def unknwn_trt_pipe(self, user_name_dict=None):
-        self.warning_reset()
+        self.warning_reset('UNKNOWN_TREATMENT')
 
         if user_name_dict:
             treatment_textbase = Information_Textbase('TreatmentNames')
@@ -202,25 +215,45 @@ class Fish_Analysis():
 
             self.sauron_run_funct(self.user_responses['run_number'])
 
-            if not self.warning:
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
                                             self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
                                             self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
             
-            if not self.warning and self.user_responses['secondary_calculations'] != 'no':
+            if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning and self.user_responses['secondary_calculations'] != 'no':
                 self.sauron_secondary_analysis_funct()
         
 
     def no_stim_pipe(self):
-        # call function to find index adjustment
-        # update textbase for index adjustments
-        # recall splitting analysis only, averaging should be fine (if poss)
-        self.warning_reset()
+        self.warning_reset('NO_STIM')
+        
+        if self.no_stim_search_status:
 
+            shift_fix = self.analyzed_info.stim_finder()
+
+            if shift_fix and shift_fix[1]:
+                frame_shift_textbase = Information_Textbase('FrameAdjustments')
+
+                frame_shift = {self.user_responses['run_number'] : shift_fix[1]}
+
+                frame_shift_textbase.add_line_to_text(frame_shift)
+
+                self.sauron_analysis_funct(self.user_responses['run_number'], self.user_responses['analysis_group'], 
+                                        self.user_responses['user_group'], self.user_responses['analysis_calculations'], 
+                                        self.run_info.csv_well_dict, self.battery_info.battery_info, self.battery_info.frame_rate)
+                
+                if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning and self.user_responses['secondary_calculations'] != 'no':
+                    self.sauron_secondary_analysis_funct()
+
+            else:
+                self.no_stim_search_status = False
+                # print this error to the user !
+                # run alternative code ? 
+            
 
     def filename_helper_pipe(self):
         # recall vis with new name 
-        self.warning_reset()
+        self.warning_reset('FILENAME_HELPER')
     
 
     def mcam_pipeline(self):
