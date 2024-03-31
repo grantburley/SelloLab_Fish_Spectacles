@@ -124,6 +124,7 @@ class Sauron_Primary_Analysis():
         self.treatments = None
         self.concentration_dict = None
         self.no_stim_assays = []
+        self.shift_finding_package = None
 
         self.warning = {}
 
@@ -168,7 +169,6 @@ class Sauron_Primary_Analysis():
 
         for well, info_tuple in self.raw_run_info.items():
             if len(info_tuple[1]) == 1:
-                # single treatment
                 treatment = info_tuple[1][0][0]
                 concentration = str(info_tuple[1][0][1])
 
@@ -180,12 +180,10 @@ class Sauron_Primary_Analysis():
                     treatment_dictionary[treatment][concentration].append(info_tuple[0])
                 
             else:
-                # multiple treatment
                 sorted_trt_cnc_tuple = sorted(info_tuple[1], key=lambda x: x[0])
                 
                 treatments = '::'.join(f'{trt_cnc_tup[0]}' for trt_cnc_tup in sorted_trt_cnc_tuple)
                 concentrations = '::'.join(f'{trt_cnc_tup[1]}' for trt_cnc_tup in sorted_trt_cnc_tuple)
-
 
                 if treatments not in treatment_dictionary.keys():
                     treatment_dictionary[treatments] = {concentrations : [info_tuple[0]]}
@@ -233,8 +231,6 @@ class Sauron_Primary_Analysis():
                 self.average_treatments()
             else:
                 self.average_grouping()
-        else:
-            pass
 
 
     def average_treatments(self):
@@ -342,7 +338,6 @@ class Sauron_Primary_Analysis():
         split_result = {}
 
         if self.user_analysis_calculations == 'full':
-            #average
             for treatment in self.averaged_dictionary.keys():
                 for concentration in self.averaged_dictionary[treatment].keys():
                     split_dict = self.average_splitter(self.averaged_dictionary[treatment][concentration][0], self.averaged_dictionary[treatment][concentration][1], self.averaged_dictionary[treatment][concentration][2])
@@ -353,7 +348,6 @@ class Sauron_Primary_Analysis():
                         split_result[treatment][concentration] = split_dict
 
         else:
-            #raw
             for treatment in self.sorted_dictionary.keys():
                 for concentration in self.sorted_dictionary[treatment].keys():
                     split_dict = self.raw_splitter(self.sorted_dictionary[treatment][concentration])
@@ -385,13 +379,11 @@ class Sauron_Primary_Analysis():
     def split_grouping(self):
         split_result = {}
         if self.user_analysis_calculations == 'full':
-            #average
             for group_name in self.averaged_dictionary.keys():
                 split_dict = self.average_splitter(self.averaged_dictionary[group_name][0], self.averaged_dictionary[group_name][1], self.averaged_dictionary[group_name][2])
                 split_result[group_name] = split_dict
 
         else:
-            #raw
             for group_name in self.sorted_dictionary.keys():
                 split_dict = self.raw_splitter(self.sorted_dictionary[group_name])
                 split_result[group_name] = split_dict
@@ -436,11 +428,11 @@ class Sauron_Primary_Analysis():
                 stimulus_end = stimulus[1][1] / self.frame_rate
                 stimulus_end = int(stimulus_end) + self.adjust_frame_index
                 
-                if stimulus_start < assay_start or stimulus_start > assay_end:
-                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS START INDEX OUT OF ASSAY RANGE : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
+                if stimulus_start < 0 or stimulus_start > len(mi_average):
+                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS START INDEX OUT OF MI RANGE {len(mi_average)} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_start = assay_start
-                if stimulus_end < assay_start or stimulus_end > assay_end:
-                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF ASSAY RANGE : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
+                if stimulus_end < 0 or stimulus_end > len(mi_average):
+                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF MI RANGE {len(mi_average)} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_end = assay_end
 
                 stimulus_avg = self.stimulus_calculator(mi_average[stimulus_start:stimulus_end])
@@ -488,11 +480,11 @@ class Sauron_Primary_Analysis():
                 stimulus_end = stimulus[1][1] / self.frame_rate
                 stimulus_end = int(stimulus_end) + self.adjust_frame_index 
                 
-                if stimulus_start < assay_start or stimulus_start > assay_end:
-                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS START INDEX OUT OF ASSAY RANGE : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
+                if stimulus_start < 0 or stimulus_start > len(mi_list[0]):
+                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS START INDEX OUT OF MI RANGE {len(mi_list[0])} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_start = assay_start
-                if stimulus_end < assay_start or stimulus_end > assay_end:
-                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF ASSAY RANGE : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
+                if stimulus_end < 0 or stimulus_end > len(mi_list[0]):
+                    fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF MI RANGE {len(mi_list[0])} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_end = assay_end
 
                 stim_mi_list = [self.stimulus_calculator(mi_values[stimulus_start:stimulus_end]) for mi_values in mi_list]
@@ -544,19 +536,23 @@ class Sauron_Primary_Analysis():
                         for assay in self.split_dictionary[treatment][concentration].keys():
                             if self.user_analysis_calculations == 'full' and assay not in self.no_stim_assays:
                                 assay_avg = sum(self.split_dictionary[treatment][concentration][assay][0]) / len(self.split_dictionary[treatment][concentration][assay][0])
+                                
                                 for stimulus in self.split_dictionary[treatment][concentration][assay][3]:
                                     stim_cntr += 1
+                                    
                                     if stimulus[1] < assay_avg:
                                         zero_cntr += 1  
 
                             elif assay not in self.no_stim_assays:
                                 avg_lst = [sum(assay_mi) / len(assay_mi) for assay_mi in  self.split_dictionary[treatment][concentration][assay][0]]
                                 assay_avg = sum(avg_lst) / len(avg_lst)
+                                
                                 for stimulus_list in self.split_dictionary[treatment][concentration][assay][1]:
                                     for lst in stimulus_list:
                                         for stimulus in lst:
                                             stim_cntr += 1
                                             avg_stm = sum(stimulus[1]) / len(stimulus[1])
+                                            
                                             if avg_stm < assay_avg:
                                                 zero_cntr += 1
 
@@ -566,32 +562,39 @@ class Sauron_Primary_Analysis():
                         if self.user_analysis_calculations == 'full' and assay not in self.no_stim_assays:
                             for stimulus in self.split_dictionary[treatment][assay][3]:
                                 assay_avg = sum(self.split_dictionary[treatment][assay][0]) / len(self.split_dictionary[treatment][assay][0])
+                                
                                 for stimulus in self.split_dictionary[treatment][assay][3]:
                                     stim_cntr += 1
+                                    
                                     if stimulus[1] < assay_avg:
                                         zero_cntr += 1
 
                         elif assay not in self.no_stim_assays:
                             avg_lst = [sum(assay_mi) / len(assay_mi) for assay_mi in  self.split_dictionary[treatment][assay][0]]
                             assay_avg = sum(avg_lst) / len(avg_lst)
+                            
                             for stimulus_list in self.split_dictionary[treatment][assay][1]:
                                 for lst in stimulus_list:
                                     for stimulus in lst:
                                         stim_cntr += 1
                                         avg_stm = sum(stimulus[1]) / len(stimulus[1])
+                                        
                                         if avg_stm < assay_avg:
                                             zero_cntr += 1
             
             responses = stim_cntr - zero_cntr
+            response_cutoff = 10 * responses
 
-            if stim_cntr > 10 * responses:
+            if stim_cntr > response_cutoff:
                 self.warning["NO_STIM"] = self.adjust_frame_index
                 fish_logger.log(Fish_Log.WARNING, f'I do not think there are any responses within the current stimuli ranges! Stimuli {stim_cntr}, Responses {responses}; Current frame adjustment {self.adjust_frame_index}')
             else:
-                fish_logger.log(Fish_Log.INFO, f'the stimuli responsiveness made the cutoff with {stim_cntr} stimuli and {stim_cntr-zero_cntr} responses')
+                fish_logger.log(Fish_Log.INFO, f'the stimuli responsiveness made the cutoff {response_cutoff} with {stim_cntr} stimuli and {responses} responses')
 
 
     def stim_finder(self):
+        self.shift_finding_package_maker()
+        
         if self.adjust_frame_index:
             self.adjust_frame_index = 0
 
@@ -612,7 +615,6 @@ class Sauron_Primary_Analysis():
         best_match = None
 
         if self.user_analysis_calculations == 'full':
-            #average
             for treatment in self.averaged_dictionary.keys():
                 for concentration in self.averaged_dictionary[treatment].keys():
                     best_match_shift = self.match_shift_finder(self.averaged_dictionary[treatment][concentration][0])
@@ -620,7 +622,6 @@ class Sauron_Primary_Analysis():
                         best_match_shift_list.append(best_match_shift)
 
         else:
-            #raw
             for treatment in self.sorted_dictionary.keys():
                 for concentration in self.sorted_dictionary[treatment].keys():
                     best_match_shift = self.raw_stim_finder(self.sorted_dictionary[treatment][concentration])
@@ -664,20 +665,17 @@ class Sauron_Primary_Analysis():
         return best_match
             
             
-    
     def split_fix_group(self):
         best_match_shift_list = []
         best_match = None
 
         if self.user_analysis_calculations == 'full':
-            #average
             for group_name in self.averaged_dictionary.keys():
                 best_match_shift = self.match_shift_finder(self.averaged_dictionary[group_name][0])
                 if best_match_shift:
                     best_match_shift_list.append(best_match_shift)
                 
         else:
-            #raw
             for group_name in self.sorted_dictionary.keys():
                 best_match_shift = self.raw_stim_finder(self.sorted_dictionary[group_name])
                 if best_match_shift:
@@ -692,43 +690,68 @@ class Sauron_Primary_Analysis():
             best_match = (confidence, int(shift))
                 
         return best_match
-                
+
+
+    def shift_finding_package_maker(self):
+        stim_start_list = [int(stimulus[1][0] / self.frame_rate) for assay in self.battery_info for stimulus in assay[2]]
+        stim_end_list = [int(stimulus[1][1] / self.frame_rate) for assay in self.battery_info for stimulus in assay[2]]
+        
+        stim_len = [stim_end_list[n] - stim_start_list[n] for n in range(0, len(stim_start_list))]
+
+        f_stim_start = []
+        f_stim_end = []
+        for s in range(len(stim_start_list)-1):
+            if stim_start_list[s+1] < stim_start_list[s] + stim_len[s]:
+                if stim_end_list[s] > stim_end_list[s+1]:
+                    pass 
+                else:
+                    f_stim_start.append(stim_start_list[s])
+                    f_stim_end.append(stim_end_list[s])
+            else:
+                f_stim_start.append(stim_start_list[s])
+                f_stim_end.append(stim_end_list[s])
+
+        f_stim_mid = [int((f_stim_start[n] + f_stim_end[n]) / 2) for n in range(0, len(f_stim_start))]
+
+        stim_pattern = [f_stim_start[n+1] - f_stim_start[n] for n in range(0, len(f_stim_start)-1)]
+
+        self.shift_finding_package = {
+            'stimulus_starts' : f_stim_start,
+            'stimulus_ends' : f_stim_end, 
+            'stimulus_midpoints' : f_stim_mid,
+            'stimulus_pattern' : stim_pattern
+        }
+
 
     def match_shift_finder(self, mi_list):
         average_mi_trace = sum(mi_list) / len(mi_list)
 
-        mi_cutoff_v = average_mi_trace * 50 # ONE OF THE THINGS !
-        # this is a whole thing right here in this one line
-        # # what is a "response", signal to noise ratios, how to find responses in an unbiased way
-
-        stim_start_list = [stimulus[1][0] / self.frame_rate for assay in self.battery_info for stimulus in assay[2]]
-        stim_end_list = [stimulus[1][1] / self.frame_rate for assay in self.battery_info for stimulus in assay[2]]
-
-        stim_mid = [int((stim_start_list[n] + stim_end_list[n]) / 2) for n in range(0, len(stim_start_list))]
-
-        stim_len = [stim_end_list[n] - stim_start_list[n] for n in range(0, len(stim_start_list))]
-
-        stim_pattern = [stim_start_list[n+1] - stim_start_list[n] for n in range(0, len(stim_start_list)-1)]
+        mi_cutoff_v = average_mi_trace * 50 
 
         response_vals = [t for t, mi in enumerate(mi_list) if mi > mi_cutoff_v]
 
-        response_val_min = [] # ONE OF THE THINGS !
+        response_val_min = [] 
         i = 0 
+        max_conseq_resp = 0
+        max_t = 0
 
         while i < len(response_vals)-1:
-            max_conseq_resp = 0
-            max_t = 0
-
             if response_vals[i+1] - 1 == response_vals[i]:
                 if mi_list[response_vals[i]] > max_conseq_resp:
                     max_conseq_resp = mi_list[response_vals[i]]
                     max_t = response_vals[i]
             
+            elif i > 0 and response_vals[i-1] + 1 == response_vals[i]:
+                if mi_list[response_vals[i]] > max_conseq_resp:
+                    max_conseq_resp = mi_list[response_vals[i]]
+                    max_t = response_vals[i]
+                
+                response_val_min.append(max_t)
+                max_conseq_resp = 0
+                max_t = 0
+
             else:
-                if max_conseq_resp:
-                    response_val_min.append(max_t)
-                else:
-                    response_val_min.append(response_vals[i])
+                response_val_min.append(response_vals[i])
             
             i+=1
 
@@ -736,31 +759,28 @@ class Sauron_Primary_Analysis():
 
         if not response_val_min:
             pass
-            #fish_logger.log(Fish_Log.ERROR, f'not enough responses detected! ASSAY STIM NUMBER {len(stim_start_list)} ; DETECTED STIM {len(response_vals)}')
 
         else:
             best_match = (0, 0) # match ratio, frame shift
 
             for t in range(0, len(response_val_min)):
                 start_stim = 0
-                attempt_find = 0 # in theory the while loop could get stuck infinitely between adding and subtracting
                 
-                lower_bound = stim_mid[start_stim] - 100
+                lower_bound = self.shift_finding_package['stimulus_starts'][start_stim] - 100
                 if lower_bound < 0:
                     lower_bound = 0
                 
-                while attempt_find < len(stim_pattern) and response_val_min[t] > 100 + stim_mid[start_stim]:
-                    attempt_find += 1
-                    start_stim += 1
-
+                while start_stim < len(self.shift_finding_package['stimulus_pattern']) and response_val_min[t] > 100 + self.shift_finding_package['stimulus_ends'][start_stim]:
                     if response_val_min[t] < lower_bound:
                         start_stim -= 1
                         break
 
-                if start_stim == -1 or start_stim > len(stim_len):
+                    start_stim += 1
+
+                if start_stim == -1:
                     start_stim = 0
                             
-                t_pattern = [response_val_min[t] + stim_pattern[i] for i in range(start_stim, len(stim_pattern))]
+                t_pattern = [response_val_min[t] + self.shift_finding_package['stimulus_pattern'][i] for i in range(start_stim, len(self.shift_finding_package['stimulus_pattern']))]
                 matches = 0
                 total = 0
 
@@ -779,12 +799,9 @@ class Sauron_Primary_Analysis():
                 match_ratio = matches / total
 
                 if match_ratio > best_match[0]:
-                    calc_shift = int(response_val_min[t] - stim_mid[start_stim])
+                    calc_shift = int(response_val_min[t] - self.shift_finding_package['stimulus_midpoints'][start_stim])
                     best_match = (match_ratio, calc_shift) 
                 
-            #fish_logger.log(Fish_Log.INFO, f'I found an new alignment, {best_match[1]} frame(s), with a {best_match[0]*100:02d} percent match with the stimuli found; 
-            #                stimuli found {len(response_vals)}, total stimuli {len(stim_mid)}')
-            
         return best_match
 
 
