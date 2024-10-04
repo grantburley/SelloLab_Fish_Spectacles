@@ -45,13 +45,355 @@ class Sauron_Primary_Analysis():
 
 
     @classmethod
-    def Average_Primary_Analysis(*cls):
-        if cls[0].working_dictionary == 'sorted':
-            pass
-        elif cls[0].working_dictionary == 'averaged':
-            pass
-        elif cls[0].working_dictionary == 'split':
-            pass
+    def average_primary_analysis(cls, srn_prim_anly_lst):
+        # add logging !
+        
+        status = Sauron_Primary_Analysis.primary_analysis_info_checker(srn_prim_anly_lst)
+        if status:
+            bio_analysis = Sauron_Primary_Analysis.__new__(Sauron_Primary_Analysis)
+            
+            bio_analysis.analysis_type = status[0]
+            bio_analysis.run_number = status[1]
+            bio_analysis.user_analysis_group = status[2]
+            bio_analysis.user_group = status[3]
+            bio_analysis.user_analysis_calculations = status[4]
+            bio_analysis.raw_run_info = status[5]
+            bio_analysis.battery_info = status[6]
+            bio_analysis.frame_rate = status[7]
+            bio_analysis.no_stim_search = status[8]
+            
+            avg = False
+
+            sorted_dict_list = [inst.sorted_dictionary for inst in srn_prim_anly_lst if inst.sorted_dictionary]
+            averaged_dict_list = [inst.averaged_dictionary for inst in srn_prim_anly_lst if inst.averaged_dictionary]
+            split_dict_list = [inst.split_dictionary for inst in srn_prim_anly_lst if inst.split_dictionary]
+            
+            bio_analysis.sorted_dictionary = Sauron_Primary_Analysis.sorted_dictionary_collector(sorted_dict_list, srn_prim_anly_lst[0].split_status)
+            
+            if averaged_dict_list:
+                avg = True
+                bio_analysis.averaged_dictionary = Sauron_Primary_Analysis.averaged_dictionary_averager(averaged_dict_list, srn_prim_anly_lst[0].split_status)
+
+            if split_dict_list:
+                bio_analysis.split_dictionary = Sauron_Primary_Analysis.split_dictionary_averager(split_dict_list, avg, srn_prim_anly_lst[0].split_status) 
+            
+            return bio_analysis
+
+
+    @staticmethod
+    def primary_analysis_info_checker(sauron_primary_analysies):
+        same = False 
+
+        analysis_types = [analysis.analysis_type for analysis in sauron_primary_analysies]
+        run_numbers = [analysis.run_number for analysis in sauron_primary_analysies]
+        user_analysis_groups = [analysis.user_analysis_group for analysis in sauron_primary_analysies]
+        user_groups = [analysis.user_group for analysis in sauron_primary_analysies]
+        user_analysis_calculations = [analysis.user_analysis_calculations for analysis in sauron_primary_analysies]
+        raw_run_infos = [analysis.raw_run_info for analysis in sauron_primary_analysies]
+        battery_infos = [analysis.battery_info for analysis in sauron_primary_analysies]
+        frame_rates = [analysis.frame_rate for analysis in sauron_primary_analysies]
+        no_stim_searchs = [analysis.no_stim_search for analysis in sauron_primary_analysies]
+
+        if len(run_numbers) != 1:
+            same = True
+        else:
+            same = False
+
+        if same:
+            assay_lists = []
+            for btry in battery_infos:
+                assay_lst = [tup[0] for tup in btry]
+                assay_lists.append(assay_lst)
+            
+            first_list = assay_lists[0]
+            same = all(lst == first_list for lst in assay_lists)
+
+        if same:
+            return (analysis_types[0], run_numbers, user_analysis_groups[0], user_groups[0], user_analysis_calculations[0], raw_run_infos, battery_infos[0], frame_rates, no_stim_searchs[0])
+        else:
+            return False
+    
+
+    @staticmethod  
+    def sorted_dictionary_collector(sorted_dictionary_list, spl_status):
+        cmbnd_dict = {}
+        if spl_status == 'treatment':
+            for dct in sorted_dictionary_list:
+                for treatment in dct.keys():
+                    if treatment not in cmbnd_dict.keys():
+                        cmbnd_dict.update({treatment : dct[treatment]})
+                    else:
+                        for concentration in dct[treatment].keys():
+                            if concentration not in cmbnd_dict[treatment].keys():
+                                cmbnd_dict[treatment].update({concentration : dct[treatment][concentration]})
+                            else:
+                                for mi_list in dct[treatment][concentration]:
+                                    cmbnd_dict[treatment][concentration].append(mi_list)
+
+        else: # group or well
+            for dct in sorted_dictionary_list:
+                for group in dct.keys():
+                    if group not in cmbnd_dict.keys():
+                        cmbnd_dict[group] = dct[group]
+                        cmbnd_dict.update({group : dct[group]})
+                    else:
+                        for mi_list in dct[group]:
+                            cmbnd_dict[group].append(mi_list) 
+        
+        return cmbnd_dict
+
+
+    @staticmethod  
+    def averaged_dictionary_averager(averaged_dictionary_list, spl_status):
+        cmbnd_dict = {}
+        avg_dict = {}
+        if spl_status == 'treatment':
+            for dct in averaged_dictionary_list:
+                for treatment in dct.keys():
+                    if treatment not in cmbnd_dict.keys():
+                        for concentration in dct[treatment].keys():
+                            if treatment in cmbnd_dict.keys():
+                                cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                            else:
+                                cmbnd_dict[treatment] = {concentration : [dct[treatment][concentration]]}
+                    else:
+                        for concentration in dct[treatment].keys():
+                            if concentration not in cmbnd_dict[treatment].keys():
+                                cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                            else:
+                                cmbnd_dict[treatment][concentration].append(dct[treatment][concentration])
+
+            for trt in cmbnd_dict.keys():
+                for cnc in cmbnd_dict[trt].keys():
+                    if len(cmbnd_dict[trt][cnc]) == 1:
+                        res =  cmbnd_dict[trt][cnc][0]
+                    else:
+                        mi_avgs_lst = [result_tuple[0] for result_tuple in cmbnd_dict[trt][cnc]]
+                        mi_meds_lst = [result_tuple[1] for result_tuple in cmbnd_dict[trt][cnc]]
+                        mi_st_devs_lst = [result_tuple[2] for result_tuple in cmbnd_dict[trt][cnc]]
+
+                        res = Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_meds_lst, mi_st_devs_lst)
+                        
+                    if trt in avg_dict.keys():
+                        avg_dict[trt].update({cnc : res})
+                    else:
+                        avg_dict[trt] = {cnc : res}
+
+        else: # group or well
+            for dct in averaged_dictionary_list:
+                for group in dct.keys():
+                    if group not in cmbnd_dict.keys():
+                        cmbnd_dict[group] = [dct[group]]
+                    else:
+                        cmbnd_dict[group].append(dct[group])
+        
+            for grp in cmbnd_dict.keys():
+                if len(cmbnd_dict[grp]) == 1:
+                    avg_dict.update({grp : cmbnd_dict[grp][0]})
+                else:
+                    mi_avgs_lst = [result_tuple[0] for result_tuple in cmbnd_dict[grp]]
+                    mi_meds_lst = [result_tuple[1] for result_tuple in cmbnd_dict[grp]]
+                    mi_st_devs_lst = [result_tuple[2] for result_tuple in cmbnd_dict[grp]]
+
+                    avg_dict.update({grp : Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_meds_lst, mi_st_devs_lst)})
+                        
+        return avg_dict
+
+
+    @staticmethod
+    def b_average_analysis(mi_average_lists, mi_median_lists, st_dev_lists):
+        max_avg_len = None
+        for mi_list in mi_average_lists:
+            if not max_avg_len:
+                max_avg_len = len(mi_list)
+            elif len(mi_list) < max_avg_len:
+                max_avg_len = len(mi_list)
+
+        max_med_len = None
+        for mi_list in mi_median_lists:
+            if not max_med_len:
+                max_med_len = len(mi_list)
+            elif len(mi_list) < max_med_len:
+                max_med_len = len(mi_list)
+
+        max_std_len = None
+        for mi_list in st_dev_lists:
+            if not max_std_len:
+                max_std_len = len(mi_list)
+            elif len(mi_list) < max_std_len:
+                max_std_len = len(mi_list)
+        
+        avg_avg_lst = []
+        for avg_mi in range(0, max_avg_len):
+            avg_mi_repl = [mi_average_lists[repl][avg_mi] for repl in range(0, len(mi_average_lists))]
+            avg_avg = sum(avg_mi_repl) / len(avg_mi_repl)
+            avg_avg_lst.append(avg_avg)
+
+        med_med_lst = []
+        for med_mi in range(0, max_med_len):
+            med_mi_repl = [mi_median_lists[repl][med_mi] for repl in range(0, len(mi_median_lists))]
+            sorted_med_mi_repl = sorted(med_mi_repl)
+            n = len(sorted_med_mi_repl)
+            if n % 2 == 0:
+                med_med = (sorted_med_mi_repl[n // 2 - 1] + sorted_med_mi_repl[n // 2]) / 2
+            else:
+                med_med = sorted_med_mi_repl[n // 2]
+            med_med_lst.append(med_med)
+
+        avg_std_v_lst = []
+        for std_v in range(0, max_std_len):
+            std_v_repl = [st_dev_lists[repl][std_v] for repl in range(0, len(st_dev_lists))]
+            avg_std_v = sum(std_v_repl) / len(std_v_repl)
+            avg_std_v_lst.append(avg_std_v)
+
+        return (avg_avg_lst, med_med_lst, avg_std_v_lst)
+
+
+    @staticmethod  
+    def split_dictionary_averager(split_dictionary_list, avg_status, spl_status):
+        cmbnd_dict = {}
+
+        if avg_status:
+            avg_dict = {}
+            if spl_status == 'treatment':
+                for dct in split_dictionary_list:
+                    for treatment in dct.keys():
+                        if treatment not in cmbnd_dict.keys():
+                            for concentration in dct[treatment].keys():
+                                if treatment in cmbnd_dict.keys():
+                                    cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                                else:
+                                    cmbnd_dict[treatment] = {concentration : [dct[treatment][concentration]]}
+                        else:
+                            for concentration in dct[treatment].keys():
+                                if concentration not in cmbnd_dict[treatment].keys():
+                                    cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                                else:
+                                    cmbnd_dict[treatment][concentration].append(dct[treatment][concentration])
+
+                for trt in cmbnd_dict.keys():
+                    for cnc in cmbnd_dict[trt].keys():
+                        if trt in avg_dict.keys():
+                            avg_dict[trt].update({cnc : Sauron_Primary_Analysis.split_assay_dict_averager(cmbnd_dict[trt][cnc])})
+                        else:
+                            avg_dict[trt] = {cnc : Sauron_Primary_Analysis.split_assay_dict_averager(cmbnd_dict[trt][cnc])}
+                        
+            else: # group or well
+                for dct in split_dictionary_list:
+                    for group in dct.keys():
+                        if group not in cmbnd_dict.keys():
+                            cmbnd_dict[group] = [dct[group]]
+                        else:
+                            cmbnd_dict[group].append(dct[group])
+
+                for grp in cmbnd_dict.keys():
+                    avg_dict[grp] = Sauron_Primary_Analysis.split_assay_dict_averager(cmbnd_dict[trt][cnc])
+            
+            return avg_dict
+        
+        else:
+            aggr_dict = {}
+            if spl_status == 'treatment':
+                for dct in split_dictionary_list:
+                    for treatment in dct.keys():
+                        if treatment not in cmbnd_dict.keys():
+                            for concentration in dct[treatment].keys():
+                                if treatment in cmbnd_dict.keys():
+                                    cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                                else:
+                                    cmbnd_dict[treatment] = {concentration : [dct[treatment][concentration]]}
+                        else:
+                            for concentration in dct[treatment].keys():
+                                if concentration not in cmbnd_dict.keys():
+                                    cmbnd_dict[treatment].update({concentration : [dct[treatment][concentration]]})
+                                else:
+                                    cmbnd_dict[treatment][concentration].append(dct[treatment][concentration])
+
+            for trt in cmbnd_dict.keys():
+                for cnc in cmbnd_dict[trt].keys():
+                    if trt in aggr_dict.keys():
+                        aggr_dict[trt].update({cnc : Sauron_Primary_Analysis.split_assay_dict_collector(cmbnd_dict[trt][cnc])})
+                    else:
+                        aggr_dict[trt] = {cnc : Sauron_Primary_Analysis.split_assay_dict_collector(cmbnd_dict[trt][cnc])}
+
+            else: # group or well
+                for dct in split_dictionary_list:
+                    for group in dct.keys():
+                        if group not in cmbnd_dict.keys():
+                            cmbnd_dict[group]  = [dct[group]]
+                        else:
+                            cmbnd_dict[group].append(dct[group]) 
+            
+            for grp in cmbnd_dict.keys():
+                aggr_dict[grp] = Sauron_Primary_Analysis.split_assay_dict_collector(cmbnd_dict[grp])
+
+            return aggr_dict
+
+    @staticmethod
+    def split_assay_dict_averager(assay_dct_lst):
+        rtn_dict = {}
+        asy_keys = assay_dct_lst[0].keys()
+
+        for asy in asy_keys:
+            assay_mi_avg = [dct[asy][0] for dct in assay_dct_lst]
+            assay_mi_med = [dct[asy][1] for dct in assay_dct_lst]
+            assay_st_dev = [dct[asy][2] for dct in assay_dct_lst]
+            assay_stim_lst = [dct[asy][3] for dct in assay_dct_lst]
+
+            avg_asy_mi_avg, med_asy_mi_med, avg_asy_st_dev = Sauron_Primary_Analysis.b_average_analysis(assay_mi_avg, assay_mi_med, assay_st_dev)
+
+            n_stims = len(assay_stim_lst[0])
+            stm_list = []
+            
+            if n_stims:
+                for stim in range(0, n_stims):
+                    stim_names = [assay_stim_lst[lst][stim][0] for lst in range(0, len(assay_stim_lst))]
+                    stim_avg = [assay_stim_lst[lst][stim][1] for lst in range(0, len(assay_stim_lst))]
+                    stim_med = [assay_stim_lst[lst][stim][2] for lst in range(0, len(assay_stim_lst))]
+                    stim_st_dev = [assay_stim_lst[lst][stim][3] for lst in range(0, len(assay_stim_lst))]
+                    stim_starts = [assay_stim_lst[lst][stim][4] for lst in range(0, len(assay_stim_lst))]
+                    stim_ends = [assay_stim_lst[lst][stim][5] for lst in range(0, len(assay_stim_lst))]
+                    avg_stim_avg = sum(stim_avg) / len(stim_avg)
+
+                    sorted_stim_med = sorted(stim_med)
+                    n = len(sorted_stim_med)
+                    if n % 2 == 0:
+                        med_stim_med = (sorted_stim_med[n // 2 - 1] + sorted_stim_med[n // 2]) / 2
+                    else:
+                        med_stim_med = sorted_stim_med[n // 2]
+
+                    avg_stim_st_dev = sum(stim_st_dev) / len(stim_st_dev)
+
+                    stm_list.append((stim_names[0], avg_stim_avg, med_stim_med, avg_stim_st_dev, stim_starts[0], stim_ends[0]))
+
+            rtn_dict[asy] = (avg_asy_mi_avg, med_asy_mi_med, avg_asy_st_dev, stm_list)
+
+        return rtn_dict
+
+
+    @staticmethod
+    def split_assay_dict_collector(assay_dct_lst):
+        rtn_dict = {}
+        asy_keys = assay_dct_lst[0].keys()
+
+        for asy in asy_keys:
+            assay_mi_lsts = [dct[asy][0] for dct in assay_dct_lst]
+            assay_stm_lsts = [dct[asy][1] for dct in assay_dct_lst]
+
+            n_stims = len(assay_dct_lst[0][asy][1])
+            stm_list = []
+
+            if n_stims:
+                for stim in range(0, n_stims):
+                    stm_names = [assay_stm_lsts[lst][stim][0] for lst in assay_stm_lsts]
+                    stm_mi_list = [assay_stm_lsts[lst][stim][1] for lst in assay_stm_lsts]
+                    
+                    stm_list.append((stm_names, stm_mi_list))
+            
+            rtn_dict[asy] = (assay_mi_lsts, stm_list)
+
+        return rtn_dict
+
 
 
     dispersion_error = {
@@ -105,7 +447,8 @@ class Sauron_Primary_Analysis():
 }
 
 
-    def __init__(self, run_number, user_analysis_group, user_group, user_analysis_calculations, raw_run_info, battery_info, frame_rate, no_stim_search):
+    def __init__(self, analysis_type, run_number, user_analysis_group, user_group, user_analysis_calculations, raw_run_info, battery_info, frame_rate, no_stim_search):
+        self.analysis_type = analysis_type
         self.run_number = run_number
         self.user_analysis_group = user_analysis_group
         self.user_group = user_group
@@ -395,7 +738,6 @@ class Sauron_Primary_Analysis():
 
     
     def average_splitter(self, mi_average, mi_median, mi_st_dev):
-        assay_name_counter = {}
         assay_dict = {}
 
         for assay in self.battery_info:
@@ -591,6 +933,12 @@ class Sauron_Primary_Analysis():
             else:
                 fish_logger.log(Fish_Log.INFO, f'the stimuli responsiveness made the cutoff {response_cutoff} with {stim_cntr} stimuli and {responses} responses')
 
+    
+    def finalize_bio_info(self):
+        self.treatments = [treatment for treatment in self.sorted_dictionary.keys()]
+        if self.user_analysis_group == 'treatment':
+            self.concentration_dict = {treatment : [concentration for concentration in self.sorted_dictionary[treatment].keys()] for treatment in self.sorted_dictionary.keys()}
+    
 
     def stim_finder(self):
         self.shift_finding_package_maker()
@@ -659,8 +1007,11 @@ class Sauron_Primary_Analysis():
             shifts = [ms[1] for ms in best_match_shift_list]
             confidence = sum(percentage) / len(percentage)
             shift = sum(shifts) / (len(shifts))
+            shift = int(shift)
 
-            best_match = (confidence, int(shift))
+            fish_logger.log(Fish_Log.INFO, f'I found best shift {shift} with confidence {confidence}')
+
+            best_match = (confidence, shift)
 
         return best_match
             
@@ -685,9 +1036,12 @@ class Sauron_Primary_Analysis():
             percentage = [ms[0] for ms in best_match_shift_list]
             shifts = [ms[1] for ms in best_match_shift_list]
             confidence = sum(percentage) / len(percentage)
-            shift = sum(shifts) / (len(shifts))
+            shift = sum(shifts) / len(shifts)
+            shift = int(shift)
 
-            best_match = (confidence, int(shift))
+            fish_logger.log(Fish_Log.INFO, f'I found best shift {shift} with confidence {confidence}')
+
+            best_match = (confidence, shift)
                 
         return best_match
 
@@ -855,7 +1209,7 @@ class Sauron_Secondary_Analysis():
         self.warning = {}
 
 
-    def technical_habituation(self):
+    def habituation(self):
         self.habituation_dictionary = None
         self.cutoff_percentage = 0.07 # for determining habituation slope
 

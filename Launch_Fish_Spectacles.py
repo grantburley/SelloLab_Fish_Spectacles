@@ -20,7 +20,7 @@ fish_logger = Fish_Log()
 
 
 try:
-    analysis = FishHead.Fish_Face()
+    FishHead.Fish_Face()
 
 except Exception as e:
     error_type = type(e).__name__

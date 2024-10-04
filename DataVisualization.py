@@ -740,6 +740,7 @@ class Sauron_Plot_Visualization():
     def graph_mi_singluar(self, plt_dict):
         max_mi = 0
         for plt_name in plt_dict.keys():
+            #print(f"{plt_name}\n{plt_dict[plt_name]}")
             if max(plt_dict[plt_name][0]) > max_mi:
                 max_mi = max(plt_dict[plt_name][0])
 

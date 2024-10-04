@@ -16,8 +16,8 @@ from TextColors import Text_Colors
 
 
 script_name = "Fish Spectacles"
-script_version = "0.3.7"
-updated_date = "2024/03/30"
+script_version = "0.3.9"
+updated_date = "2024/10/04"
 script_version_write_date = "2023/12/11" # start
 
 fish_logger = Fish_Log()
@@ -56,8 +56,9 @@ class Fish_Face():
 
     prompt_questions = {
         'analysis_machine' : f'{Text_Colors.NORMAL}\tWhich machine was used to collect data?\n\t-Sauron \n\t-MCAM : [INPROGRESS DO NOT USE]\n--> ',
-        'analysis_type' : f'{Text_Colors.NORMAL}\n\tWhat type of analysis do you want to perform?\n\t-preview : show battery and treatment information for run \n\t-technical : individual run \n\t-biological : [INPROGRESS DO NOT USE] analyze multiple runs together\n\t\t(must use same battery) \n\t-battery : show battery information \n--> ',
+        'analysis_type' : f'{Text_Colors.NORMAL}\n\tWhat type of analysis do you want to perform?\n\t-preview : show battery and treatment information for run \n\t-technical : individual run \n\t-biological : analyze multiple runs together\n\t\t(must use same battery) \n\t-battery : show battery information \n--> ',
         'run_number' : f'{Text_Colors.NORMAL}\n\tWhich run number to view?\n--> ',
+        'run_numbers' : f'{Text_Colors.NORMAL}\n\tWhich run numbers to view?\n--> ',
         'battery_number' : f'{Text_Colors.NORMAL}\n\tWhich battery number to view?\n--> ',
         'battery_plot' : f'{Text_Colors.NORMAL}\n\tDo you want to plot stimuli on the MI trace?\n\t-yes\n\t-no\n--> ',
         'analysis_group' : f'{Text_Colors.NORMAL}\n\tHow do you want to group the data?\n\t-treatment : sort by treatment / concentration\n\t-well : sort by well\n\t-error : sorts by rows, columns, and halves\n\t-custom : custom input for grouping \n--> ',
@@ -171,7 +172,13 @@ class Fish_Face():
         if not self.alive:
             return
     
-        if self.user_responses['analysis_type'] != 'battery' and self.user_responses['analysis_type'] != 'preview':    
+        if self.user_responses['analysis_type'] == 'biological':
+            if self.user_responses['analysis_group'] == 'treatment':
+                self.graph_prompt(self.analysis.biological_info.treatments, self.analysis.battery_info[0].assays, cncs=self.analysis.biological_info.concentration_dict)
+            else:
+                self.graph_prompt(self.analysis.biological_info.treatments, self.analysis.battery_info[0].assays)
+            
+        elif self.user_responses['analysis_type'] != 'battery' and self.user_responses['analysis_type'] != 'preview':    
             if self.user_responses['analysis_group'] == 'treatment':
                 self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays, cncs=self.analysis.analyzed_info.concentration_dict)
             else:
@@ -205,9 +212,15 @@ class Fish_Face():
         continue_analysis = True
         while continue_analysis:    
             if self.user_responses['analysis_group'] == 'treatment':
-                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays, cncs=self.analysis.analyzed_info.concentration_dict)
+                if self.user_responses['analysis_type'] == 'biological':
+                    self.graph_prompt(self.analysis.biological_info.treatments, self.analysis.battery_info[0].assays, cncs=self.analysis.biological_info.concentration_dict)
+                else:
+                    self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays, cncs=self.analysis.analyzed_info.concentration_dict)
             else:
-                self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays)
+                if self.user_responses['analysis_type'] == 'biological':
+                    self.graph_prompt(self.analysis.biological_info.treatments, self.analysis.battery_info[0].assays)
+                else:
+                    self.graph_prompt(self.analysis.analyzed_info.treatments, self.analysis.battery_info.assays)
 
             if not self.alive:
                 return
@@ -223,21 +236,22 @@ class Fish_Face():
         self.prompt_package('analysis_machine')
         
         self.prompt_package('analysis_type')
-        
         if self.user_responses['analysis_type'] == 'battery':
             self.prompt_package('battery_number')
             if self.user_responses['name_file'] == 'custom':
                 self.prompt_package('user_file')
             return
 
-        self.prompt_package('run_number')
+        if self.user_responses['analysis_type'] == 'biological':
+            self.prompt_package('run_numbers')
+        else:
+            self.prompt_package('run_number')
 
         self.prompt_package('analysis_group')
         if self.user_responses['analysis_group'] == 'custom':
             self.custom_grouping()
 
         self.prompt_package('analysis_calculations')
-        
         if self.user_responses['analysis_calculations'] == 'full':
             self.prompt_package('secondary_calculations')            
 
@@ -249,13 +263,10 @@ class Fish_Face():
             return
 
         self.prompt_package('name_title')
-        
         if self.user_responses['name_title'] == 'custom':
             self.prompt_package('user_title')
 
         self.prompt_package('battery_plot')
-
-        
 
         fish_logger.log(Fish_Log.INFO, f'user_responses {{{", ".join(f"{key}: {value}" for key, value in self.user_responses.items())}}}')
         
@@ -270,7 +281,6 @@ class Fish_Face():
             
         if self.user_responses['analysis_calculations'] == 'split' or self.user_responses['analysis_calculations'] == 'full': 
             self.prompt_package('specific_assay')
-            
             if self.user_responses['specific_assay'] == 'yes':
                 self.user_assay(assays)
 
@@ -311,6 +321,27 @@ class Fish_Face():
                 """)
                 response = self.prompt_user(prompt)
         
+        elif prompt == 'run_numbers':
+            if isinstance(response, list):
+                exist = True
+                for rn in response:
+                    if rn not in self.prompt_answers['run_number']:
+                        exist = False
+                if not exist:
+                    print(f'''{Text_Colors.NORMAL}
+                        I am sorry, I could not find your input : {response}
+                        in the correct directory. Please check your number input
+                        or update the run .csv files in SauronResources/SauronRuns
+                    ''')
+                    response = self.prompt_user(prompt)
+
+            else:
+                print(f'''{Text_Colors.NORMAL}
+                I am sorry, I was expecting a list of integers
+                I did not understand your response {response}
+                ''')
+                response = self.prompt_user(prompt)
+        
         elif prompt == 'user_file' or prompt == 'user_title':
             response = response.replace(' ', '_')
         
@@ -331,6 +362,7 @@ class Fish_Face():
             'analysis_machine' : self.str_response,
             'analysis_type' : self.str_response,
             'run_number' : self.int_response,
+            'run_numbers' : self.int_response,
             'battery_number' : self.int_response,
             'battery_plot' : self.str_response,
             'analysis_group' : self.str_response,
@@ -760,7 +792,6 @@ class Fish_Face():
             print(confused)
             self.no_run_csv_response(warning_string)
         
-
     
     def no_battery_csv_response(self, warning_tuple):
         warning_string = f"""{Text_Colors.WARNING}
@@ -856,6 +887,7 @@ class Fish_Face():
 
         for unknown_name in unknown_trt_dict.keys():
             conc_str = "\n\t\t\t".join([f"{conc} : {unknown_trt_dict[unknown_name][conc]}" for conc in unknown_trt_dict[unknown_name].keys()])
+            #yea the tabs of conc_str is really weird but it works ¯\_(ツ)_/¯ 
             prompt_string = f"""{Text_Colors.CAUTION}
                 NAME 
                     CONCENTRATION : WELLS
@@ -866,7 +898,7 @@ class Fish_Face():
                 Input one of the following
                     unknown : for (an) unknown treatment(s)
                     treatment_name : known name (will be updated in textbase)
-            """ #yea the tabs of conc_str is really weird but it works ¯\_(ツ)_/¯ 
+            """ 
 
             new_nm = input(f'{prompt_string}\n-->').strip().lower().replace(' ', '_')
             
