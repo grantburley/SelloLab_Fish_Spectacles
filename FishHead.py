@@ -16,8 +16,8 @@ from TextColors import Text_Colors
 
 
 script_name = "Fish Spectacles"
-script_version = "0.3.9"
-updated_date = "2024/10/04"
+script_version = "0.4.3"
+updated_date = "2024/12/02"
 script_version_write_date = "2023/12/11" # start
 
 fish_logger = Fish_Log()
@@ -63,11 +63,13 @@ class Fish_Face():
         'battery_plot' : f'{Text_Colors.NORMAL}\n\tDo you want to plot stimuli on the MI trace?\n\t-yes\n\t-no\n--> ',
         'analysis_group' : f'{Text_Colors.NORMAL}\n\tHow do you want to group the data?\n\t-treatment : sort by treatment / concentration\n\t-well : sort by well\n\t-error : sorts by rows, columns, and halves\n\t-custom : custom input for grouping \n--> ',
         'analysis_calculations' : f'{Text_Colors.NORMAL}\n\tHow do you want to analyze the results?\n\t-raw : overlays replicates of same treatment/group\n\t-average : averages mi traces of same treatment/group\n\t-split : does not average mi traces but splits them\n\t\tinto individual assays and stimuli responses \n\t-full : averages and splits mi traces\n--> ',
-        'secondary_calculations' : f'{Text_Colors.NORMAL}\n\tDo you want to perform secondary analysis?\n\t-habituation : returns habituation results\n\t-prepulse inhibition : [INPROGRESS DO NOT USE] returns prepulse inhibition results\n\t-no\n--> ',
+        'secondary_calculations' : f'{Text_Colors.NORMAL}\n\tDo you want to perform secondary analysis?\n\t-responsiveness : returns groups of treatment/concentrations based on statical separation\n\t-ppi : returns prepulse inhibition results\n\t-habituation : returns habituation results\n\t-all : returns responsiveness, ppi, and habituation\n\t-no\n--> ',
+        'secondary_grouping' : f'{Text_Colors.NORMAL}\n\tDo you want to find statistically separate groups of conditions based on their activity?\n\t-yes\n\t-no\n--> ',
         'name_title' : f'{Text_Colors.NORMAL}\n\tDo you want to set the title of the plots?\n\t-default : analysisType RUN(S) runNumber(s) (ASSAY assayNames) (STIMULUS stimulusNames)\n\t-custom\n--> ',
         'user_title' : f'{Text_Colors.NORMAL}\n\tPlease input the the title for the plots below:\n-->',
         'name_file' : f'{Text_Colors.NORMAL}\n\tDo you want to set the name of the file?\n\t-default : YYYYMMDD_RUNS_runNumbers_plotType_analysisType\n\t-custom\n--> ',
         'user_file' : f'{Text_Colors.NORMAL}\n\tPlease input the name for the file below:\n-->',
+        'visualize_battery' : f'{Text_Colors.NORMAL}\n\t Do you want to view the battery information?\n\t-yes\n\t-no\n--> ',
         'specific_treatment' : f'{Text_Colors.NORMAL}\n\tDo you want to view specific treatments/groupings or treatment concenctrations?\n\t-treatment : view specific treatments or groupings\n\t-treatment-concentration : view specific treatment concentration graphs\n\t-no\n--> ',
         'specific_assay' : f'{Text_Colors.NORMAL}\n\tDo you want to view specific assays?\n\t-yes\n\t-no\n--> ',
         'isolate_stimuli' : f'{Text_Colors.NORMAL}\n\tDo you want to isolate the stimuli?\n\t-yes\n\t-no\n--> ',
@@ -83,10 +85,12 @@ class Fish_Face():
         'analysis_calculations' : ['raw', 'average', 'split', 'full'],
         'name_title' : ['default', 'custom'],
         'name_file' : ['default', 'custom'],
+        'visualize_battery' : ['yes', 'no'],
         'specific_treatment' : ['treatment', 'treatment-concentration', 'no'], # needs treatments from csvs added or display options afterwards
         'specific_assay' : ['yes', 'no'], # needs assays from csvs added or display options afterwards
         'isolate_stimuli' : ['yes', 'no'],
-        'secondary_calculations' : ['habituation', 'arousal', 'no'],
+        'secondary_calculations' : ['responsiveness', 'habituation', 'ppi',  'all', 'no'],
+        'secondary_grouping' : ['yes', 'no'],
         'visualize_secondary' : ['yes', 'no']
     }
 
@@ -100,16 +104,18 @@ class Fish_Face():
         'user_group' : None,
         'analysis_calculations' : None,
         'secondary_calculations': None,
+        'secondary_grouping' : None,
         'name_title' : None,
         'user_title' : None,
         'name_file' : None,
         'user_file' : None,
+        'visualize_battery' : None,
         'specific_treatment' : None,
         'user_treatment' : None,
         'specific_assay' : None,
         'user_assay' : None,
         'visualize_secondary' : None,
-        'user_habituation' : None,  
+        'user_control' : None,  
         'isolate_stimuli' : None 
     }
 
@@ -152,7 +158,7 @@ class Fish_Face():
 
     def new_fish(self):
         del self.analysis
-        print(f'{Text_Colors.NORMAL}]\n\n\t**********************\n\tStarting a New Prompt\n\t**********************\n')
+        print(f'{Text_Colors.NORMAL}\n\n\t**********************\n\tStarting a New Prompt\n\t**********************\n')
         self.usage_detail()
         self.live_fish()
 
@@ -253,7 +259,10 @@ class Fish_Face():
 
         self.prompt_package('analysis_calculations')
         if self.user_responses['analysis_calculations'] == 'full':
-            self.prompt_package('secondary_calculations')            
+            self.prompt_package('secondary_calculations')
+
+        if self.user_responses['secondary_calculations'] != 'no' and self.user_responses['secondary_calculations'] != None:
+            self.prompt_package('secondary_grouping')     
 
         self.prompt_package('name_file')
         if self.user_responses['name_file'] == 'custom':
@@ -272,6 +281,11 @@ class Fish_Face():
         
 
     def graph_prompt(self, treatments, assays, cncs=None):
+        #self.prompt_package('visualize_battery')
+        
+        if self.user_responses['analysis_type'] == 'battery' or self.user_responses['analysis_type'] == 'preview':
+            return 
+        
         self.prompt_package('specific_treatment')
         
         if self.user_responses['specific_treatment'] == 'treatment':
@@ -286,10 +300,11 @@ class Fish_Face():
 
             self.prompt_package('isolate_stimuli')
 
-            if self.user_responses['secondary_calculations'] == 'habituation':
+            if self.user_responses['secondary_calculations'] != 'no' and self.user_responses['secondary_calculations'] != None:
                 self.prompt_package('visualize_secondary')
-                if self.user_responses['visualize_secondary'] == 'yes':
-                    self.user_habituation(treatments, cncs)
+                if self.user_responses['secondary_calculations'] == 'habituation' or self.user_responses['secondary_calculations'] == 'all':
+                    if self.user_responses['analysis_group'] == 'treatment' and self.user_responses['visualize_secondary'] == 'yes':
+                        self.user_control(treatments, cncs)
 
 
     @user_is_alive_check
@@ -371,10 +386,12 @@ class Fish_Face():
             'user_title' : self.str_response,
             'name_file' : self.str_response,
             'user_file' : self.str_response,
+            'visualize_battery' : self.str_response,
             'specific_treatment' : self.str_response,
             'specific_assay' : self.str_response,
             'isolate_stimuli' : self.str_response,
             'secondary_calculations' : self.str_response,
+            'secondary_grouping' : self.str_response,
             'visualize_secondary' : self.str_response
         }
 
@@ -450,14 +467,14 @@ class Fish_Face():
         self.user_responses['user_treatment'] = result_list
 
 
-    def treatment_concentration_response(self, prompt, treatments, concentration_dict, no=False):
+    def treatment_concentration_response(self, prompt, treatments, concentration_dict, dono=False):
         response = input(f"{prompt}\n-->")
         
         if response.strip().lower() in self.kill_words:
             self.alive = False
             return
 
-        if no:
+        if dono:
             if response.strip().lower() == 'no':
                 return None
 
@@ -695,7 +712,7 @@ class Fish_Face():
 
 
     @user_is_alive_check
-    def user_habituation(self, treatment_list, concentration_dict):
+    def user_control(self, treatment_list, concentration_dict):
         if self.user_responses['analysis_group'] == 'treatment':
             instruction_str = f"""{Text_Colors.NORMAL}
                 If you have a control for this run, please input it below
@@ -711,7 +728,7 @@ class Fish_Face():
             treatment_concentrations = [f"\t{self.interpret_treatment_concentration(treatment, concentration)}\n" for treatment in treatment_list for concentration in concentration_dict[treatment]]
             treatment_prompt = f'{Text_Colors.NORMAL}\ttreatments and concentrations found:\n{"".join(treatment_concentrations)}'
             user_prompt = f"{instruction_str}{treatment_prompt}"
-            result = self.treatment_concentration_response(user_prompt, treatment_list, concentration_dict, no=True)
+            result = self.treatment_concentration_response(user_prompt, treatment_list, concentration_dict, dono=True)
         
         else:
             instruction_str = f"""{Text_Colors.NORMAL}
@@ -733,7 +750,7 @@ class Fish_Face():
         if not self.alive:
             return
         
-        self.user_responses['user_habituation'] = result
+        self.user_responses['user_control'] = result
 
 
     def warning_handler(self, warnings):

@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.colors import ListedColormap, BoundaryNorm
+import matplotlib.patches as mpatches
 from matplotlib.colorbar import ColorbarBase
 import matplotlib.backends.backend_pdf as pdf
 import numpy as np
@@ -249,25 +250,45 @@ class Sauron_Plot_Visualization():
         3 : 'black'
     }
 
-    stimulus_bar_colors = {
-        'purple_LED' : '#994683', # light_purple
+    stimulus_colors = {
+        'purple_LED' : '#9696D1', # light purple
         'soft_solenoid' : '#EB00AC', # magenta
-        'blue_LED' : '#2583E6', # blue
+        'blue_LED' : '#2465E6', # blue
         'red_LED' : '#EB401A', # red
-        'solenoid' : '#40E6E4', # light blue
-        'MP3' : '#93E660', # light green
-        'green_LED' : '#2CB507' # green
+        'solenoid' : '#28DBBB', # light blue
+        'MP3' : '#DBBD00', # yellow
+        'green_LED' : '#37B833' # green
     }
 
+    group_colors = {
+        0 : '#2465E6', # blue
+        1 : '#EB401A', # red
+        2 : '#37B833', # green
+        3 : '#EB00AC', # magenta
+        4 : '#DBBD00', # yellow
+        5 : '#28DBBB', # light blue
+        6 : '#FFA4D7', # pink
+        7 : '#600CAD', # dark purple
+        8 : '#9696D1', # light purple
+        9 : '#BDAA67', # tan
+        10 : '#7B30BD', # purple
+        11 : '#025E1B', # dark green
+        12 : '#5C2600', # orange brown
+        13 : '#5C294F', # mauve
+        14 : '#1E1D41' # navy blue
+    }
+
+
     def __init__(self, analysis_type, run_number, battery_plot, analysis_group, analysis_calculations, 
-                 specific_treatment, user_treatments, specific_assay, user_assay, isolate_stimuli, 
-                 name_title, user_title, name_file, user_file, visualize_secondary, 
-                 user_habituation, battery_information, final_information, split_str):
+                 visualize_battery, specific_treatment, user_treatments, specific_assay, user_assay, 
+                 isolate_stimuli, name_title, user_title, name_file, user_file, visualize_secondary, 
+                 user_control, battery_information, final_information, split_str):
         self.analysis_type = analysis_type
         self.run_number = run_number
         self.battery_plot = battery_plot
         self.analysis_group = analysis_group
         self.analysis_calculations = analysis_calculations
+        self.visualize_battery = visualize_battery
         self.specific_treatment = specific_treatment
         self.user_treatments = user_treatments
         self.specific_assay = specific_assay
@@ -278,10 +299,9 @@ class Sauron_Plot_Visualization():
         self.name_file = name_file
         self.user_file = user_file
         self.visualize_secondary = visualize_secondary
-        self.user_habituation = user_habituation
+        self.user_control = user_control
         self.battery_information = battery_information
         self.final_information = final_information
-
         self.split_str = split_str 
         
         self.calc = 'average' # hidden setting
@@ -310,14 +330,13 @@ class Sauron_Plot_Visualization():
         return datetime.now().strftime("%Y%m%d")
         
 
-
-    def generate_filename(self):
+    def generate_filename(self, battery=False):
         if self.user_file:
             return f"{self.user_file}"
+        elif battery:
+            return f"{self.datetime_date}_BATTERY_{self.battery_information.battery_number}_{self.plot_type_string}"
         else:
             return f"{self.datetime_date}_RUN_{self.run_number}_{self.plot_type_string}_{self.analysis_calculations}" 
-        #else:
-        #    return f"{self.datetime_date}_RUNS_{'_'.join([str(run_number) for run_number in self.run_number])}_{self.plot_type_string}_{self.analysis_calculations}"
         
 
     def filename_helper(self, filename, extension):
@@ -365,7 +384,7 @@ class Sauron_Plot_Visualization():
             return f"{treatment} {concentration}uM"
         
 
-    def interpret_habituation_lists(self, cnc_list, slp_list, avg_std_list):
+    def interpret_secondary_lists(self, cnc_list, val_list, avg_std_list):
         tup_list = []
         dual = False
         for cnc in cnc_list:
@@ -386,18 +405,38 @@ class Sauron_Plot_Visualization():
         srt_i = sorted(range(len(tup_list)), key=lambda k: tup_list[k][0])
 
         ordrd_cncs = [np.log(tup_list[i][0]) for i in srt_i]
-        ordrd_slps = [slp_list[i] for i in srt_i]
+        ordrd_vals = [val_list[i] for i in srt_i]
         ordrd_st_devs = [avg_std_list[i] for i in srt_i] 
 
         axis_list = [f"{cnc.split('::')[0]}uM and {cnc.split('::')[1]}uM" if dual else f'{cnc}uM' for cnc in cnc_list]
 
-        return axis_list, ordrd_cncs, ordrd_slps, ordrd_st_devs
+        return axis_list, ordrd_cncs, ordrd_vals, ordrd_st_devs
 
 
     def visualization_path(self):
+        if self.visualize_battery == 'yes':
+            self.graphing_battery_information()
+        
         if self.visualize_secondary == 'yes':
-            self.graphing_habituation_dict()
+            if self.final_information.group_response_dictionary:
+                self.graphing_secondary_group_dict(self.final_information.group_response_dictionary, 'general')
+            if self.final_information.responsive_dictionary:
+                self.graphing_secondary_response_dict(self.final_information.responsive_dictionary, 'general')
+            
+            if self.final_information.group_habituation_dictionary:
+                self.graphing_secondary_group_dict(self.final_information.group_habituation_dictionary, 'habituation')
+            #if self.final_information.habituation_responsive_dictionary:
+            #    self.graphing_secondary_response_dict(self.final_information.habituation_responsive_dictionary, 'habituation')
+            if self.final_information.habituation_dictionary:
+                self.graphing_habituation_dict(self.final_information.habituation_dictionary)
 
+            if self.final_information.prepulse_inhibition_dictionary:
+                self.graphing_secondary_ppi(self.final_information.prepulse_inhibition_dictionary)
+
+            if self.final_information.group_prepulse_inhibition_dictionary:
+                self.graphing_secondary_group_dict(self.final_information.group_prepulse_inhibition_dictionary, 'ppi')
+
+        
         elif self.analysis_type == "preview":
             pass 
 
@@ -427,6 +466,67 @@ class Sauron_Plot_Visualization():
                         self.graphing_singlular_group_line_dict()
 
 
+    def graphing_battery_information(self):
+        self.plot_type_string = f"battery_assay_stimulus_plot"
+        
+        pdf_file_name = self.generate_filename()
+        pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        if os.path.exists(pdf_file_path):
+            pdf_file_name = self.filename_helper(pdf_file_name, '.pdf')
+            pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+        
+        
+        fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
+
+        with pdf.PdfPages(pdf_file_path) as pdf_pages:
+            fig, ax = plt.subplots(figsize=(14.5, 7.5))
+
+            y_assay = 2.0
+            y_stimuli = 0 
+            y_axis_distance = 1.5
+
+            assay_handles = []
+            stimuli_handles = []
+
+            for index, (assay_name, (assay_start, assay_stop), stimuli) in enumerate(self.battery_information.battery_info):
+                clr_indx = index % 15
+                
+                assay_line = ax.hlines(
+                    y=y_assay + y_axis_distance, xmin=assay_start, xmax=assay_stop, 
+                    color=self.group_colors[clr_indx], linewidth=6, label=f'{assay_name}'
+                )
+                
+                if f'{assay_name}' not in [handle.get_label() for handle in assay_handles]:
+                    assay_handles.append(assay_line)
+
+                if stimuli:
+                    for stim_name, (stim_start, stim_stop) in stimuli:
+                        color = self.stimulus_colors.get(stim_name, 'gray')  
+                        stim_line = ax.hlines(
+                            y=y_stimuli + y_axis_distance, xmin=stim_start, xmax=stim_stop, 
+                            color=color, linewidth=4, label=f'{stim_name}'
+                        )
+                        if f'{stim_name}' not in [handle.get_label() for handle in stimuli_handles]:
+                            stimuli_handles.append(stim_line)
+
+            ax.set_yticks([]) 
+            ax.spines['top'].set_visible(False)  
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False) 
+            ax.set_xlabel("Time (s)")
+            ax.set_ylim(0, 5)  
+
+            #legend1 = ax.legend(handles=assay_handles, title="Assays", loc='upper left', bbox_to_anchor=(1.05, 1.5))
+            #ax.add_artist(legend1) 
+            #ax.legend(handles=stimuli_handles, title="Stimuli", loc='upper left', bbox_to_anchor=(1.55, 1.5))
+
+            plt.tight_layout()
+
+            pdf_pages.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
+                
+    
     def graphing_overlay_treat_bar_dict(self):
         # bar dict {f"title" : [(stimulus_name, [stimulus_mi_list, stimulus_mi_list])]}
         if self.specific_assay == 'yes':
@@ -463,27 +563,27 @@ class Sauron_Plot_Visualization():
         # # stimulus_list = [(stimulus_name1, stimulus_avg1, stimulus_median1, stimulus_st_dev1, stimulus_start1, stimulus_end1), (another tuple), ...]
         if self.specific_assay == 'yes':
             if self.specific_treatment == "treatment":
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : self.final_information.split_dictionary[treatment][concentration][assay][3] for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : self.final_information.split_dictionary[treatment][concentration][assay][2] for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_isolated_stimuli_specific_treatments"
                 
             elif self.specific_treatment == 'treatment-concentration':
-                plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][3] for trt_cnc in self.user_treatments for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][2] for trt_cnc in self.user_treatments for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_isolated_stimuli_specific_treatments"
                 
             else:
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : self.final_information.split_dictionary[treatment][concentration][assay][3] for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : self.final_information.split_dictionary[treatment][concentration][assay][2] for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_isolated_stimuli_all_treatments"
                 
         elif self.specific_treatment == "treatment":
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : assay_stimulus_list for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay, (assay_avg_mi, assay_med_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[treatment][concentration].items()}
+                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : assay_stimulus_list for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay, (assay_avg_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[treatment][concentration].items()}
                 self.plot_type_string = f"all_assays_isolated_stimuli_specific_treatments"
                 
         elif self.specific_treatment == 'treatment-concentration':
-            plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : assay_stimulus_list for trt_cnc in self.user_treatments for assay, (assay_avg_mi, assay_med_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]].items()}
+            plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : assay_stimulus_list for trt_cnc in self.user_treatments for assay, (assay_avg_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]].items()}
             self.plot_type_string = f"all_assays_isolated_stimuli_all_treatmentps"
                 
         else:
-            plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : assay_stimulus_list for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay, (assay_avg_mi, assay_med_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[treatment][concentration].items()}
+            plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : assay_stimulus_list for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay, (assay_avg_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[treatment][concentration].items()}
             self.plot_type_string = f"all_assays_isolated_stimuli_all_treatments"                
 
         fish_logger.log(Fish_Log.INFO, f"Plot Type String {self.plot_type_string}, N Plots {len(plot_dict.keys())}")
@@ -518,22 +618,23 @@ class Sauron_Plot_Visualization():
         # # stimulus_list = [(stimulus_name1, stimulus_avg1, stimulus_median1, stimulus_st_dev1, stimulus_start1, stimulus_end1), (another tuple), ...]
         if self.specific_assay == 'yes':
             if self.specific_treatment == "treatment":
-                plot_dict = {f"{group}uM+{assay}" : self.final_information.split_dictionary[group][assay][3] for group in self.user_treatments for assay in self.user_assay}
+                plot_dict = {f"{group}uM+{assay}" : self.final_information.split_dictionary[group][assay][2] for group in self.user_treatments for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_isolated_stimuli_specific_groupings"
                 
             else:
-                plot_dict = {f"{group}+{assay}" : self.final_information.split_dictionary[group][assay][3] for group in self.final_information.split_dictionary.keys() for assay in self.user_assay}
+                plot_dict = {f"{group}+{assay}" : self.final_information.split_dictionary[group][assay][2] for group in self.final_information.split_dictionary.keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_isolated_stimuli_all_groupings"
                 
         elif self.specific_treatment == "treatment":
-                plot_dict = {f"{group}+{assay}" : assay_stimulus_list for group in self.user_treatments for assay, (assay_avg_mi, assay_med_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[group].items()}
+                plot_dict = {f"{group}+{assay}" : assay_stimulus_list for group in self.user_treatments for assay, (assay_avg_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[group].items()}
                 self.plot_type_string = f"all_assays_isolated_stimuli_specific_groupings"
                 
         else:
-            plot_dict = {f"{group}+{assay}" : assay_stimulus_list for group in self.final_information.split_dictionary.keys() for assay, (assay_avg_mi, assay_med_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[group].items()}
+            plot_dict = {f"{group}+{assay}" : assay_stimulus_list for group in self.final_information.split_dictionary.keys() for assay, (assay_avg_mi, assay_st_dev, assay_stimulus_list) in self.final_information.split_dictionary[group].items()}
             self.plot_type_string = f"all_assays_isolated_stimuli_all_groupings"
 
         fish_logger.log(Fish_Log.INFO, f"Plot Type String {self.plot_type_string}, N Plots {len(plot_dict.keys())}")
+
         self.graph_stimuli_singluar(plot_dict)
 
 
@@ -573,27 +674,27 @@ class Sauron_Plot_Visualization():
         a_type_plot = self.calc_indx-1
         if self.specific_assay == 'yes':
             if self.specific_treatment == "treatment":
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : (self.final_information.split_dictionary[treatment][concentration][assay][a_type_plot], self.final_information.split_dictionary[treatment][concentration][assay][2]) for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : (self.final_information.split_dictionary[treatment][concentration][assay][a_type_plot], self.final_information.split_dictionary[treatment][concentration][assay][1]) for treatment in self.user_treatments for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_specific_treatments"
                 
             elif self.specific_treatment == 'treatment-concentration':
-                plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : (self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][a_type_plot], self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][2]) for trt_cnc in self.user_treatments for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}+{assay}" : (self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][a_type_plot], self.final_information.split_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][assay][1]) for trt_cnc in self.user_treatments for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_specific_treatments"
                 
             else:
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : (self.final_information.split_dictionary[treatment][concentration][assay][a_type_plot], self.final_information.split_dictionary[treatment][concentration][assay][2]) for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
+                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}" : (self.final_information.split_dictionary[treatment][concentration][assay][a_type_plot], self.final_information.split_dictionary[treatment][concentration][assay][1]) for treatment in self.final_information.split_dictionary.keys() for concentration in self.final_information.split_dictionary[treatment].keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_all_treatments"
                 
         elif self.specific_treatment == "treatment":
-                plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}" : (self.final_information.averaged_dictionary[treatment][concentration][a_type_plot], self.final_information.averaged_dictionary[treatment][concentration][2]) for treatment in self.user_treatments for concentration in self.final_information.averaged_dictionary[treatment].keys()}
-                self.plot_type_string = f"full_mi_traces_specific_treatments"
-                
+            plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}" : (self.final_information.averaged_dictionary[treatment][concentration][a_type_plot], self.final_information.averaged_dictionary[treatment][concentration][1]) for treatment in self.user_treatments for concentration in self.final_information.averaged_dictionary[treatment].keys()}
+            self.plot_type_string = f"full_mi_traces_specific_treatments"
+            
         elif self.specific_treatment == 'treatment-concentration':
-            plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}" : (self.final_information.averaged_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][a_type_plot], self.final_information.averaged_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][2]) for trt_cnc in self.user_treatments}
+            plot_dict = {f"{self.interpret_treatment_concentration(trt_cnc.split(self.split_str)[0], trt_cnc.split(self.split_str)[1])}" : (self.final_information.averaged_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][a_type_plot], self.final_information.averaged_dictionary[trt_cnc.split(self.split_str)[0]][trt_cnc.split(self.split_str)[1]][1]) for trt_cnc in self.user_treatments}
             self.plot_type_string = f"full_mi_traces_specific_treatments"
                 
         else:
-            plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}" : (self.final_information.averaged_dictionary[treatment][concentration][a_type_plot], self.final_information.averaged_dictionary[treatment][concentration][2]) for treatment in self.final_information.averaged_dictionary.keys() for concentration in self.final_information.averaged_dictionary[treatment].keys()}
+            plot_dict = {f"{self.interpret_treatment_concentration(treatment, concentration)}" : (self.final_information.averaged_dictionary[treatment][concentration][a_type_plot], self.final_information.averaged_dictionary[treatment][concentration][1]) for treatment in self.final_information.averaged_dictionary.keys() for concentration in self.final_information.averaged_dictionary[treatment].keys()}
             self.plot_type_string = f"full_mi_traces_all_treatments"
                 
         fish_logger.log(Fish_Log.INFO, f"Plot Type String {self.plot_type_string}, N Plots {len(plot_dict.keys())}")
@@ -630,96 +731,114 @@ class Sauron_Plot_Visualization():
         a_type_plot = self.calc_indx-1
         if self.specific_assay == 'yes':
             if self.specific_treatment == "treatment":
-                plot_dict = {f"{group}+{assay}" : (self.final_information.split_dictionary[group][assay][a_type_plot], self.final_information.split_dictionary[group][2]) for group in self.user_treatments for assay in self.user_assay}
+                plot_dict = {f"{group}+{assay}" : (self.final_information.split_dictionary[group][assay][a_type_plot], self.final_information.split_dictionary[group][assay][1]) for group in self.user_treatments for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_specific_groupings"
                 
             else:
-                #print(a_type_plot)
-                #print(self.final_information.split_dictionary.keys())
-                plot_dict = {f"{group}+{assay}" : (self.final_information.split_dictionary[group][assay][a_type_plot], self.final_information.split_dictionary[group][2]) for group in self.final_information.split_dictionary.keys() for assay in self.user_assay}
+                plot_dict = {f"{group}+{assay}" : (self.final_information.split_dictionary[group][assay][a_type_plot], self.final_information.split_dictionary[group][assay][1]) for group in self.final_information.split_dictionary.keys() for assay in self.user_assay}
                 self.plot_type_string = f"ASSAYs_{'_'.join([assay for assay in self.user_assay])}_mi_traces_all_groupings"
                 
         elif self.specific_treatment == "treatment":
             if self.analysis_group == 'well': # this condition is needed because wells are not averaged !
                 plot_dict = {f"{group}" : (self.final_information.sorted_dictionary[group][0], [0 for i in range(0, len(self.final_information.sorted_dictionary[group][0]))]) for group in self.user_treatments}
             else:
-                plot_dict = {f"{group}" : (self.final_information.averaged_dictionary[group][a_type_plot], self.final_information.averaged_dictionary[group][2]) for group in self.user_treatments}
+                plot_dict = {f"{group}" : (self.final_information.averaged_dictionary[group][a_type_plot], self.final_information.averaged_dictionary[group][1]) for group in self.user_treatments}
             self.plot_type_string = f"all_assays_mi_traces_specific_groupings"
 
         else:
             if self.analysis_group == 'well': # see above same if statement comment
                 plot_dict = {f"{group}" : (self.final_information.sorted_dictionary[group][0], [0 for i in range(0, len(self.final_information.sorted_dictionary[group][0]))]) for group in self.final_information.sorted_dictionary.keys()} 
             else:
-                plot_dict = {f"{group}" : (self.final_information.averaged_dictionary[group][a_type_plot], self.final_information.averaged_dictionary[group][2]) for group in self.final_information.averaged_dictionary.keys()}
+                plot_dict = {f"{group}" : (self.final_information.averaged_dictionary[group][a_type_plot], self.final_information.averaged_dictionary[group][1]) for group in self.final_information.averaged_dictionary.keys()}
             self.plot_type_string = f"all_assays_mi_traces_all_groupings"
         
         fish_logger.log(Fish_Log.INFO, f"Plot Type String {self.plot_type_string}, N Plots {len(plot_dict.keys())}")
         self.graph_mi_singluar(plot_dict)
 
 
-    def graphing_habituation_dict(self):
-        habituation_dictionary = self.final_information.habituation_dictionary
-        plt_dict = {}
+    def graphing_habituation_dict(self, habituation_dictionary):
+        plt_dict = {} 
+        plt_dict1 = {} #{assay_stim : ([value], [std], [condition])}
         treatment_slope_dict = {} # {ASSAY : {STIMULUS : {TREATMENT : {CONCENTRATION : (stim_slope, stim_r_sqrd, stim_avg_std)] }}}}
         cntrl_dict = {}
         cntrl_name = None
         cntrl_cnc = None
         n_reps_bar = 1
 
-        if self.user_habituation != 'no':
+        if self.user_control and self.user_control != 'no':
             n_reps_bar = 2
                   
             if self.final_information.sauron_primary_analysis.user_analysis_group == 'treatment':
-                cntrl_name = self.user_habituation.split(self.split_str)[0].strip()
-                cntrl_cnc = self.user_habituation.split(self.split_str)[1].strip()
+                cntrl_name = self.user_control.split(self.split_str)[0].strip()
+                cntrl_cnc = self.user_control.split(self.split_str)[1].strip()
             else:
-                cntrl_name = self.user_habituation.split(self.split_str)[0]
+                cntrl_name = self.user_control.split(self.split_str)[0]
 
         if self.analysis_group == 'treatment':
             for treatment in habituation_dictionary.keys():
                 for concentration in habituation_dictionary[treatment].keys():
                     for assay in habituation_dictionary[treatment][concentration].keys():
                         for stimulus in habituation_dictionary[treatment][concentration][assay].keys():
+                            assay = assay.strip()
                             if treatment == cntrl_name and concentration == cntrl_cnc:
                                 cntrl_dict[assay] = habituation_dictionary[treatment][concentration][assay][stimulus] 
                             
-                            #asy_stm_str = f'{assay}+{stimulus}' # poss future implementation 
-                            asy_stm_str = f'{assay}'
+                            asy_str = f"{assay}"
+                            asy_stm_str = f'{assay} + {stimulus}'
                             
-                            trt_cnc_str = f"{self.interpret_treatment_concentration(treatment, concentration)}+{assay}"
+                            trt_cnc_str = f"{self.interpret_treatment_concentration(treatment, concentration)} : {assay}+{stimulus}"
+                            cnditn_str = f"{self.interpret_treatment_concentration(treatment, concentration)}"
+
                             plt_dict.update({trt_cnc_str : habituation_dictionary[treatment][concentration][assay][stimulus]})
 
-                            if asy_stm_str not in treatment_slope_dict.keys():  
-                                treatment_slope_dict[asy_stm_str] = {treatment : {concentration : (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])}}
-                            elif treatment  not in treatment_slope_dict[asy_stm_str].keys():
-                                treatment_slope_dict[asy_stm_str][treatment] = {concentration : (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])}
-                            elif concentration  not in treatment_slope_dict[asy_stm_str][treatment].keys():
-                                treatment_slope_dict[asy_stm_str][treatment][concentration] = (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])
-        
+                            if asy_str not in treatment_slope_dict.keys():  
+                                treatment_slope_dict[asy_str] = {treatment : {concentration : (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])}}
+                            elif treatment  not in treatment_slope_dict[asy_str].keys():
+                                treatment_slope_dict[asy_str][treatment] = {concentration : (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])}
+                            elif concentration  not in treatment_slope_dict[asy_str][treatment].keys():
+                                treatment_slope_dict[asy_str][treatment][concentration] = (habituation_dictionary[treatment][concentration][assay][stimulus][2], habituation_dictionary[treatment][concentration][assay][stimulus][4], habituation_dictionary[treatment][concentration][assay][stimulus][5])
+
+                            if asy_stm_str not in plt_dict1.keys():
+                                plt_dict1[asy_stm_str] = ([habituation_dictionary[treatment][concentration][assay][stimulus][2]], [habituation_dictionary[treatment][concentration][assay][stimulus][5]], [cnditn_str])
+                            else:
+                                plt_dict1[asy_stm_str][0].append(habituation_dictionary[treatment][concentration][assay][stimulus][2])
+                                plt_dict1[asy_stm_str][1].append(habituation_dictionary[treatment][concentration][assay][stimulus][5])
+                                plt_dict1[asy_stm_str][2].append(cnditn_str)
+
         else:
             for group in habituation_dictionary.keys():
                 for assay in habituation_dictionary[group].keys():
-                    for stimulus in habituation_dictionary[group].keys():
+                    assay = assay.strip()
+                    for stimulus in habituation_dictionary[group][assay].keys():
                         if group == cntrl_name:
                             cntrl_dict[assay] = habituation_dictionary[group][assay][stimulus]
 
-                        asy_stm_str = f'{assay}'
+                        asy_str = f'{assay}'
+                        asy_stm_str = f'{assay} + {stimulus}'
                         
-                        plt_dict.update({f"{group}+{assay}" : habituation_dictionary[group][assay][stimulus]})
+                        plt_dict.update({f"{group} : {assay}+{stimulus}" : habituation_dictionary[group][assay][stimulus]})
 
-                        if asy_stm_str not in treatment_slope_dict.keys():  
-                            treatment_slope_dict[asy_stm_str] = {treatment : (habituation_dictionary[treatment][assay][stimulus][2], habituation_dictionary[treatment][assay][stimulus][4], habituation_dictionary[treatment][assay][stimulus][5])}
-                        elif treatment  not in treatment_slope_dict[asy_stm_str].keys():
-                            treatment_slope_dict[asy_stm_str][treatment] = (habituation_dictionary[treatment][assay][stimulus][2], habituation_dictionary[treatment][assay][stimulus][4], habituation_dictionary[treatment][assay][stimulus][5])
-        
+                        if asy_str not in treatment_slope_dict.keys():  
+                            treatment_slope_dict[asy_str] = {group : (habituation_dictionary[group][assay][stimulus][2], habituation_dictionary[group][assay][stimulus][4], habituation_dictionary[group][assay][stimulus][5])}
+                        elif group  not in treatment_slope_dict[asy_str].keys():
+                            treatment_slope_dict[asy_str][group] = (habituation_dictionary[group][assay][stimulus][2], habituation_dictionary[group][assay][stimulus][4], habituation_dictionary[group][assay][stimulus][5])
+
+                        if asy_stm_str not in plt_dict1.keys():
+                            plt_dict1[asy_stm_str] = ([habituation_dictionary[group][assay][stimulus][2]], [habituation_dictionary[group][assay][stimulus][5]], [group])
+                        else:
+                            plt_dict1[asy_stm_str][0].append(habituation_dictionary[group][assay][stimulus][2])
+                            plt_dict1[asy_stm_str][1].append(habituation_dictionary[group][assay][stimulus][5])
+                            plt_dict1[asy_stm_str][2].append(group)
+
+
         slope_plt = {}
         if self.analysis_group == 'treatment':
             for assay_stim_nm in treatment_slope_dict:
                 for treatment in treatment_slope_dict[assay_stim_nm].keys():
                     concentration_list = [concentration for concentration in treatment_slope_dict[assay_stim_nm][treatment].keys()]
                     slope_list = [treatment_slope_dict[assay_stim_nm][treatment][concentration][0] for concentration in treatment_slope_dict[assay_stim_nm][treatment].keys()]
-                    avg_std_list = [treatment_slope_dict[assay_stim_nm][treatment][concentration][1] for concentration in treatment_slope_dict[assay_stim_nm][treatment].keys()]
-                    axis_list, conc_list, slps_list, avg_st_devs = self.interpret_habituation_lists(concentration_list, slope_list, avg_std_list)
+                    avg_std_list = [treatment_slope_dict[assay_stim_nm][treatment][concentration][2] for concentration in treatment_slope_dict[assay_stim_nm][treatment].keys()]
+                    axis_list, conc_list, slps_list, avg_st_devs = self.interpret_secondary_lists(concentration_list, slope_list, avg_std_list)
                     slope_plt[f"{treatment}+{assay_stim_nm}"] = (axis_list, conc_list, slps_list, avg_st_devs)
 
         self.plot_type_string = f"habituation_analysis_slopes"
@@ -736,11 +855,184 @@ class Sauron_Plot_Visualization():
         else:
             self.graph_habituation(plt_dict, n_reps_bar)
 
-         
+        self.plot_type_string = f"habituation_analysis"
+        #self.graph_oneD_points(plt_dict1)
+        self.graph_oneD_bars(plt_dict1)
+
+    
+    def graphing_secondary_response_dict(self, response_dictionary, typ_str):
+        plt_dict = {} # {assay_stim_treatment : ([value], [std], [concentration])}
+        plt_dict1 = {} # {assay_stim : ([value], [std], [condition])}
+
+        if self.analysis_group == 'treatment':
+            for assay_stim in response_dictionary.keys():
+                val_lst1 = []
+                std_lst1 = []
+                cndt_lst = []
+                for treatment in response_dictionary[assay_stim].keys():
+                    val_lst = []
+                    std_lst = []
+                    cnc_lst = list(response_dictionary[assay_stim][treatment].keys())
+
+                    for concentration, activ_tup in response_dictionary[assay_stim][treatment].items():
+                        condition = self.interpret_treatment_concentration(treatment, concentration)
+
+                        val_lst.append(activ_tup[0])
+                        std_lst.append(activ_tup[1])
+                        val_lst1.append(activ_tup[0])
+                        std_lst1.append(activ_tup[1])
+                        cndt_lst.append(condition)
+                    
+                    assay_stim_trt = f"{assay_stim}&{treatment}"
+
+                    axis_list, conc_list, vals_list, st_devs = self.interpret_secondary_lists(cnc_lst, val_lst, std_lst)
+
+                    plt_dict[assay_stim_trt] = (axis_list, conc_list, vals_list, st_devs)
+
+                plt_dict1[assay_stim] = (val_lst1, std_lst1, cndt_lst)
+
+            self.plot_type_string = f'concentration_dependent_{typ_str}_response_analysis'
+            self.graph_conc_depend_points(plt_dict)   
+             
+            self.plot_type_string = f'{typ_str}_response_analysis'
+            #self.graph_oneD_points(plt_dict1)
+            self.graph_oneD_bars(plt_dict1)         
+
+        else:
+            for assay_stim in response_dictionary.keys():
+                val_lst1 = []
+                std_lst1 = []
+                cndt_lst = []
+                for group, activ_tup in response_dictionary[assay_stim].items():
+                    val_lst1.append(activ_tup[0])
+                    std_lst1.append(activ_tup[1])
+                    cndt_lst.append(group)
+                
+                plt_dict1[assay_stim] = (val_lst1, std_lst1, cndt_lst)
+
+            self.plot_type_string = 'general_response_analysis'
+            #self.graph_oneD_points(plt_dict1)
+            self.graph_oneD_bars(plt_dict1)
+
+
+    def graphing_secondary_group_dict(self, group_dictionary, type_str):
+        plt_dict = {} # {assay_stim : ([trt_cnc] [vals] [std] [clrs])}
+        
+        if self.analysis_group == 'treatment':
+            for assay_stim in group_dictionary.keys():
+                color_legend = []
+                clr = 0
+                cndt_lst = []
+                vals_lst = []
+                std_lst = []
+                clr_lst = []
+
+                g_dict = group_dictionary[assay_stim][0]
+                key_dict = group_dictionary[assay_stim][1]
+
+                for cndt_grp, info_tup in g_dict.items():
+                    clr_indx = clr % 15
+                    grp_clr = Sauron_Plot_Visualization.group_colors[clr_indx]
+                    color_legend.append((cndt_grp, grp_clr))
+
+                    for point in info_tup[2]:
+                        if point not in cndt_lst:
+                            cndt_lst.append(point)
+                            vals_lst.append(key_dict[point][0])
+                            std_lst.append(key_dict[point][1])
+                            clr_lst.append(grp_clr)
+
+                    clr += 1
+
+                plt_dict[assay_stim] = (vals_lst, std_lst, cndt_lst, clr_lst, color_legend)
+
+        else:
+            for assay_stim in group_dictionary.keys():
+                color_legend = []
+                clr = 0
+                cndt_lst = []
+                vals_lst = []
+                std_lst = []
+                clr_lst = []
+                
+                g_dict = group_dictionary[assay_stim][0]
+                key_dict = group_dictionary[assay_stim][1]
+
+                for cndt_grp, info_tup in g_dict.items():
+                    clr_indx = clr % 15
+                    grp_clr = Sauron_Plot_Visualization.group_colors[clr_indx]
+                    color_legend.append((cndt_grp, grp_clr))
+
+                    for point in info_tup[2]:
+                        if point not in cndt_lst:
+                            cndt_lst.append(point)
+                            vals_lst.append(key_dict[point][0])
+                            std_lst.append(key_dict[point][1])
+                            clr_lst.append(grp_clr)
+
+                    clr += 1
+
+                plt_dict[assay_stim] = (vals_lst, std_lst, cndt_lst, clr_lst, color_legend)
+        
+        self.plot_type_string = f'{type_str}_grouping_analysis'
+        #self.graph_oneD_points(plt_dict, grouping=True)
+        self.graph_oneD_bars(plt_dict, grouping=True)
+
+    
+    def graphing_secondary_ppi(self, ppi_dict):
+        plt_dict = {} # {assay_stim : ([value], [std], [condition])}
+        plt_dict1 = {} # {assay_stim_treatment : ([value], [std], [concentration])}
+
+        if self.analysis_group == 'treatment':
+            for asy_stm_i in ppi_dict.keys():
+                for treatment in ppi_dict[asy_stm_i].keys():
+                    asy_stm_i_trt = f"{asy_stm_i}&{treatment}"
+                    cnc_list = list(ppi_dict[asy_stm_i][treatment].keys())
+                    val_list = []
+                    std_list = []
+                    
+                    for concentration in ppi_dict[asy_stm_i][treatment].keys():
+                        condition = f"{self.interpret_treatment_concentration(treatment, concentration)}"
+
+                        if asy_stm_i not in plt_dict.keys():
+                            plt_dict[asy_stm_i] = ([ppi_dict[asy_stm_i][treatment][concentration][0]], [ppi_dict[asy_stm_i][treatment][concentration][1]], [condition])
+                        else:
+                            plt_dict[asy_stm_i][0].append(ppi_dict[asy_stm_i][treatment][concentration][0])
+                            plt_dict[asy_stm_i][1].append(ppi_dict[asy_stm_i][treatment][concentration][1])
+                            plt_dict[asy_stm_i][2].append(condition) 
+
+                        val_list.append(ppi_dict[asy_stm_i][treatment][concentration][0])
+                        std_list.append(ppi_dict[asy_stm_i][treatment][concentration][1])
+                    
+                    axis_list, conc_list, vals_list, st_devs = self.interpret_secondary_lists(cnc_list, val_list, std_list)
+                    
+                    plt_dict1[asy_stm_i_trt] = (axis_list, conc_list, vals_list, st_devs)
+
+            self.plot_type_string = f'prepulse_inhbition_analysis'
+            self.graph_oneD_bars(plt_dict)
+
+            self.plot_type_string = f'prepulse_inhbition_conc_depend_analysis'
+            self.graph_conc_depend_points(plt_dict1) 
+
+        else:
+            for asy_stm_i in ppi_dict.keys():
+                for group in ppi_dict[asy_stm_i].keys():
+                    condition = group
+
+                    if asy_stm_i not in plt_dict.keys():
+                        plt_dict[asy_stm_i] = ([ppi_dict[asy_stm_i][group][0]], [ppi_dict[asy_stm_i][group][1]], [condition])
+                    else:
+                        plt_dict[asy_stm_i][0].append(ppi_dict[asy_stm_i][group][0])
+                        plt_dict[asy_stm_i][1].append(ppi_dict[asy_stm_i][group][1])
+                        plt_dict[asy_stm_i][2].append(condition)
+
+            self.plot_type_string = f'prepulse_inhbition_analysis'
+            self.graph_oneD_bars(plt_dict) 
+
+
     def graph_mi_singluar(self, plt_dict):
         max_mi = 0
         for plt_name in plt_dict.keys():
-            #print(f"{plt_name}\n{plt_dict[plt_name]}")
             if max(plt_dict[plt_name][0]) > max_mi:
                 max_mi = max(plt_dict[plt_name][0])
 
@@ -787,7 +1079,7 @@ class Sauron_Plot_Visualization():
                             if assay_info[0] == assay_name:
                                 assay_start = assay_info[1][0] / self.battery_information.frame_rate
                                 for stimulus_name, (stimulus_start, stimulus_end) in assay_info[2]:
-                                    stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                                    stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                                     
                                     stimulus_start_x = (stimulus_start / self.battery_information.frame_rate) - assay_start
                                     stimulus_end_x = (stimulus_end / self.battery_information.frame_rate) - assay_start
@@ -799,7 +1091,7 @@ class Sauron_Plot_Visualization():
                                     color_list.append('white')
                     else:
                         for stimulus_name, (stimulus_start, stimulus_end) in self.battery_information.battery_lines:
-                            stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                            stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                             
                             color_indx.append(int(stimulus_start))
                             color_list.append(stimulus_color)
@@ -825,7 +1117,7 @@ class Sauron_Plot_Visualization():
                             if assay_info[0] == assay_name:
                                 assay_start = assay_info[1][0] / self.battery_information.frame_rate
                                 for stimulus_name, (stimulus_start, stimulus_end) in assay_info[2]:
-                                    stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                                    stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                                     stimulus_start_x = (stimulus_start / self.battery_information.frame_rate) - assay_start
                                     stimulus_end_x = (stimulus_end / self.battery_information.frame_rate) - assay_start
                                     
@@ -836,7 +1128,7 @@ class Sauron_Plot_Visualization():
                                     
                     else:
                         for stimulus_name, (stimulus_start, stimulus_end) in self.battery_information.battery_lines:
-                            stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                            stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                             
                             color_x.append(int(stimulus_start))
                             color_list.append(stimulus_color)
@@ -853,7 +1145,7 @@ class Sauron_Plot_Visualization():
                 ax.set_xlabel('Time (frames)')
                 ax.set_ylabel('Motion Index (MI) Average')
                 ax.set_title(plt_title)
-                ax.legend(loc=(1, 0.589))
+                ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
                 plt.tight_layout()
 
@@ -900,7 +1192,7 @@ class Sauron_Plot_Visualization():
                             if assay_info[0] == assay_name:
                                 assay_start = assay_info[1][0] / self.battery_information.frame_rate
                                 for stimulus_name, (stimulus_start, stimulus_end) in assay_info[2]:
-                                    stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                                    stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                                     stimulus_start_x = (stimulus_start / self.battery_information.frame_rate) - assay_start
                                     stimulus_end_x = (stimulus_end / self.battery_information.frame_rate) - assay_start
                                     
@@ -911,7 +1203,7 @@ class Sauron_Plot_Visualization():
                                     
                     else:
                         for stimulus_name, (stimulus_start, stimulus_end) in self.battery_information.battery_lines:
-                            stimulus_color = self.stimulus_bar_colors.get(stimulus_name, '#E69307')
+                            stimulus_color = self.stimulus_colors.get(stimulus_name, '#E69307')
                             
                             color_x.append(int(stimulus_start))
                             color_list.append(stimulus_color)
@@ -928,15 +1220,16 @@ class Sauron_Plot_Visualization():
                         clr = i - clr_i_end
                     else:
                         clr = i
-                    ax.plot(x_vals, mi_list, linewidth=0.5, color=self.overlay_line_colors[clr])
+                    clr_plot = clr % 12
+                    ax.plot(x_vals, mi_list, linewidth=0.5, color=self.overlay_line_colors[clr_plot])
 
                 legend_elements = [
-                    Line2D([0], [0], color=self.overlay_line_colors[i], linestyle='-', linewidth=2, label=f"Replicate {i + 1}")
+                    Line2D([0], [0], color=self.overlay_line_colors[i%12], linestyle='-', linewidth=2, label=f"Replicate {i + 1}")
                     for i in range(len(mi_lists))
                     ]
 
                 legend_title = f'{f_label}'
-                ax.legend(handles=legend_elements, loc=(1, 0.589), title=legend_title)
+                ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), title=legend_title)
 
                 
                 ax.set_ylim(0, max_mi)
@@ -959,12 +1252,13 @@ class Sauron_Plot_Visualization():
             pdf_file_name = self.filename_helper(pdf_file_name, '.pdf')
             pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
 
-        max_mi = 0
+        max_val = 0
         for plt_label, stim_list in plt_dict.items():
             for stim_tup in stim_list:
-                if stim_tup[self.calc_indx] > max_mi:
-                    max_mi = stim_tup[self.calc_indx]
-        max_mi *= 1.1
+                val = stim_tup[self.calc_indx]+stim_tup[2]
+                if val > max_val:
+                    max_val = val
+        max_val *= 1.1
 
         fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
 
@@ -973,10 +1267,10 @@ class Sauron_Plot_Visualization():
                 stimulus_dictionary = {} # maintain multiple lines for readability
                 for stimulus_tuple in stim_info_list:
                     if stimulus_tuple[0] not in stimulus_dictionary.keys():
-                        stimulus_dictionary[stimulus_tuple[0]] = ([stimulus_tuple[self.calc_indx]], [stimulus_tuple[3]])
+                        stimulus_dictionary[stimulus_tuple[0]] = ([stimulus_tuple[self.calc_indx]], [stimulus_tuple[2]])
                     else:
                         stimulus_dictionary[stimulus_tuple[0]][0].append(stimulus_tuple[self.calc_indx])
-                        stimulus_dictionary[stimulus_tuple[0]][1].append(stimulus_tuple[3])
+                        stimulus_dictionary[stimulus_tuple[0]][1].append(stimulus_tuple[2])
 
                 for stimulus_name in stimulus_dictionary.keys():
                     fig, ax = plt.subplots(figsize=(14.5, 5.5))
@@ -1004,12 +1298,12 @@ class Sauron_Plot_Visualization():
                                     capsize=error_bar_capsize)
 
                     
-                    ax.set_ylim(0, max_mi)
+                    ax.set_ylim(0, max_val)
 
                     ax.set_xlabel('Time (frames)')
                     ax.set_ylabel('Motion Index (MI) Average')
                     ax.set_title(plt_title)
-                    ax.legend(loc=(1, 0.589))
+                    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
                     plt.tight_layout()
 
@@ -1033,7 +1327,7 @@ class Sauron_Plot_Visualization():
                     max_mi = max(stim_tup[1])
                 if not n_reps:
                     n_reps = len(stim_tup[1])
-        max_mi *= 1.1
+        max_mi *= 1.5
 
         fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
 
@@ -1074,14 +1368,13 @@ class Sauron_Plot_Visualization():
                         ]
 
                     legend_title = f'{f_label}'
-                    ax.legend(handles=legend_elements, loc=(1, 0.589), title=legend_title)
+                    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), title=legend_title)
 
                     ax.set_ylim(0, max_mi)
 
                     ax.set_xlabel('Time (frames)')
                     ax.set_ylabel('Motion Index (MI) Average')
                     ax.set_title(plt_title)
-                    ax.legend(loc=(1, 0.589))
 
                     plt.tight_layout()
 
@@ -1110,8 +1403,11 @@ class Sauron_Plot_Visualization():
                 for plt_label, (stim_mi_avg, stim_st_dev, stim_slope, stim_intercept, stim_r_sqrd, stim_avg_std, drop_indx) in plt_dict.items():
                     fig, ax = plt.subplots(figsize=(14.5, 5.5))
                     
-                    assay_name = plt_label.split("+")[1].strip()
                     f_label = plt_label.split("+")[0]
+                    assay_name = f_label.split(':')[1].strip()
+                    f_label = f_label.split(':')[0]
+                    stimulus_name = plt_label.split("+")[1].strip()
+                    
                     plt_title = self.generate_title(assay=assay_name)
                 
                     new_width = 0.4
@@ -1129,8 +1425,8 @@ class Sauron_Plot_Visualization():
                     trt_bars = ax.bar(stm_x, stim_mi_avg, label=f_label, width=new_width, linewidth=0.5, color=self.habit_line_colors[0])
                     cntrl_bars = ax.bar(control_x, control_dict[assay_name][0], label=f'Control', width=new_width, linewidth=0.5, color=self.habit_line_colors[1])
 
-                    avg_line = ax.plot(stm_line_x, stm_line_y, linewidth=1.5, color=self.habit_line_colors[2])
-                    cntrl_line = ax.plot(cntrl_line_x, cntrl_line_y, linewidth=1.5, color=self.habit_line_colors[3])
+                    avg_line = ax.plot(stm_line_x, stm_line_y, linewidth=3, color="blue")
+                    cntrl_line = ax.plot(cntrl_line_x, cntrl_line_y, linewidth=3, color="gray")
 
                     error_bar_color = 'red'
                     error_bar_linewidth = 0.8
@@ -1157,14 +1453,13 @@ class Sauron_Plot_Visualization():
                         ]
 
                     legend_title = f'{f_label}'
-                    ax.legend(handles=legend_elements, loc=(1, 0.589), title=legend_title)
+                    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), title=legend_title)
 
                     ax.set_ylim(0, max_mi)
 
                     ax.set_xlabel('Time (frames)')
                     ax.set_ylabel('Motion Index (MI) Average')
                     ax.set_title(plt_title)
-                    ax.legend(loc=(1, 0.589))
 
                     plt.tight_layout()
 
@@ -1176,9 +1471,12 @@ class Sauron_Plot_Visualization():
                 for plt_label, (stim_mi_avg, stim_st_dev, stim_slope, stim_intercept, stim_r_sqrd, stim_avg_std, drop_indx) in plt_dict.items():
                     fig, ax = plt.subplots(figsize=(14.5, 5.5))
                     
-                    assay_name = plt_label.split("+")[1].strip()
                     f_label = plt_label.split("+")[0]
-                    plt_title = self.generate_title(assay=assay_name)
+                    assay_name = f_label.split(':')[1]
+                    f_label = f_label.split(':')[0]
+                    stimulus_name = plt_label.split("+")[1].strip()
+                    
+                    plt_title = self.generate_title(assay=assay_name, stimulus=stimulus_name)
         
                     stim_x = [x for x in range(len(stim_mi_avg))]
 
@@ -1187,7 +1485,7 @@ class Sauron_Plot_Visualization():
 
                     bars = ax.bar(stim_x, stim_mi_avg, label=f_label, linewidth=0.5, color=self.habit_line_colors[0])
 
-                    avg_line = ax.plot(stm_line_x, stm_line_y, linewidth=0.5, color=self.habit_line_colors[0])
+                    avg_line = ax.plot(stm_line_x, stm_line_y, linewidth=3, color='black')
 
                     error_bar_color = 'red'
                     error_bar_linewidth = 0.8
@@ -1198,7 +1496,7 @@ class Sauron_Plot_Visualization():
                                     color=error_bar_color, linewidth=error_bar_linewidth, 
                                     capsize=error_bar_capsize)
                     
-                    ax.legend(loc=(1, 0.589))
+                    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                     ax.set_ylim(0, max_mi)
 
                     ax.set_xlabel('Time (frames)')
@@ -1209,6 +1507,64 @@ class Sauron_Plot_Visualization():
 
                     pdf_pages.savefig(fig)
                     plt.close(fig)
+
+    
+    def graph_conc_depend_points(self, plt_dict):
+        ttl_vals = []
+        for asy_stm in plt_dict.keys():
+            info_tup = plt_dict[asy_stm]
+            for v in info_tup[2]:
+                av = float(v)
+                ttl_vals.append(av)
+
+        max_y = 1.2 * max(ttl_vals)
+        min_y = min(ttl_vals) /  1.2
+
+        max_y = int(max_y)
+        min_y = int(min_y)
+
+        pdf_file_name = self.generate_filename()
+        pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        if os.path.exists(pdf_file_path):
+            pdf_file_name = self.filename_helper(pdf_file_name, '.pdf')
+            pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
+
+        with pdf.PdfPages(pdf_file_path) as pdf_pages:
+            for plt_label, (x_axis_names, x_list, vals_list, std_list) in plt_dict.items():
+                fig, ax = plt.subplots(figsize=(14.5, 5.5))
+                #ax.set_ylim(min_y, max_y)
+
+                condition = plt_label.split('&')[1]
+                asy_stm = plt_label.split('&')[0]
+                
+                if "+" in asy_stm:
+                    plt_title = self.generate_title(assay=asy_stm.split("+")[0], stimulus=asy_stm.split("+")[1])
+                else: 
+                    plt_title = self.generate_title(assay=asy_stm)
+                
+                final_x = np.arange(len(x_list))
+                final_names = [str(name) for name in x_axis_names]
+                final_vals = [val for val in vals_list]
+                final_std = [std for std in std_list]
+
+                ax.errorbar(final_x, final_vals, yerr=final_std, fmt='none', ecolor='k', alpha=0.5, capsize=5)
+                ax.scatter(final_x, final_vals, label=condition, marker='s', color='k')
+                
+                ax.set_xticks(final_x)
+                ax.set_xticklabels(final_names)
+
+                ax.set_xlabel('Concentrations')
+                ax.set_ylabel('Activity')
+                ax.set_title(plt_title)
+                ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+                plt.tight_layout()
+
+                pdf_pages.savefig(fig)
+                plt.close(fig)
 
 
     def graph_slope_lines(self, plt_dict, control_dict=False):
@@ -1258,20 +1614,212 @@ class Sauron_Plot_Visualization():
                 final_slp = [slp for slp in slp_list]
                 final_avg_std = [avg_std for avg_std in avg_std_list]
 
+                ax.errorbar(final_x, final_slp, yerr=final_avg_std, fmt='none', linewidth=0.1, color='k', alpha=0.5, capsize=5)
+
                 ax.scatter(final_x, final_slp, label=f_label, marker='s', color='k')
-                ax.errorbar(final_x, final_avg_std, linestyle='', linewidth=0.1, color='red',alpha=0.5)
-
-
+                
                 ax.set_xticks(final_x)
                 ax.set_xticklabels(final_names)
 
                 ax.set_xlabel('Concentrations')
                 ax.set_ylabel('Habituation Rate')
                 ax.set_title(plt_title)
-                ax.legend(loc=(1, 0.589))
+                ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
                 plt.tight_layout()
 
                 pdf_pages.savefig(fig)
                 plt.close(fig)
+
+
+    def graph_oneD_points(self, plt_dict, grouping=False):
+        pdf_file_name = self.generate_filename()
+        pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        if os.path.exists(pdf_file_path):
+            pdf_file_name = self.filename_helper(pdf_file_name, '.pdf')
+            pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
+
+        with pdf.PdfPages(pdf_file_path) as pdf_pages:
+            if grouping:
+                for plt_label, (val_list, std_list, cndt_list, clr_lst, clr_lgnd) in plt_dict.items():
+                    fig, ax = plt.subplots(figsize=(14.5, 5.5))
+                    y_level = 0.5
+
+                    if "+" in plt_label:
+                        plt_title = self.generate_title(assay=plt_label.split("+")[0], stimulus=plt_label.split("+")[1])
+                    else: 
+                        plt_title = self.generate_title(assay=plt_label)
+
+                    for i, (value, std_dev, color) in enumerate(zip(val_list, std_list, clr_lst)):
+                        ax.errorbar(value, y_level, xerr=std_dev, marker='o', markersize=7, 
+                                    color=color, linestyle='None', capsize=5, ecolor='black', elinewidth=3)
+
+                    for i, cndt in enumerate(cndt_list):
+                        ax.text(val_list[i], y_level + 0.02, cndt, ha='center', fontsize=5, rotation=90)
+
+                    ax.get_yaxis().set_visible(False)
+                    ax.xaxis.set_ticks_position('none') 
+                    
+                    if min(val_list) < 0:
+                        xmin =  min(val_list) * 1.2 - 1
+                    else:
+                        xmin = min(val_list) - (max(val_list) * 0.2) - 1
+
+                    if max(val_list) <= 0:
+                        xmax = max(val_list) - (min(val_list) * 0.2) + 1
+                    else:
+                        xmax = max(val_list) * 1.2 + 1
+
+                    ax.hlines(0, xmin, xmax, color='black')
+                    ax.set_xlim(xmin, xmax)
+                    ax.set_ylim(0, y_level + 0.5)
+
+                    legend_patches = [mpatches.Patch(color=clr_info_tup[1], label=clr_info_tup[0]) for clr_info_tup in clr_lgnd]
+                    ax.legend(handles=legend_patches, loc='center left', bbox_to_anchor=(1, 0.5), title='Statistically Separate Groups')  # Set legend title here
+                    ax.set_xlabel('Activity')
+                    ax.set_title(plt_title)
+
+                    plt.tight_layout()
+
+                    pdf_pages.savefig(fig)
+                    plt.close(fig)
+
+            else:
+                for plt_label, (val_list, std_list, cndt_list) in plt_dict.items():
+                    fig, ax = plt.subplots(figsize=(14.5, 5.5))
+                    y_level = 0.5
+
+                    if "+" in plt_label:
+                        plt_title = self.generate_title(assay=plt_label.split("+")[0], stimulus=plt_label.split("+")[1])
+                    else: 
+                        plt_title = self.generate_title(assay=plt_label)
+
+                    ax.errorbar(val_list, [y_level] * len(val_list), xerr=std_list, marker='o', markersize=7, 
+                        color='blue', linestyle='None', capsize=5, ecolor='black', elinewidth=3)
+
+                    for i, cndt in enumerate(cndt_list):
+                        ax.text(val_list[i], y_level + 0.05, cndt, ha='center', fontsize=5, rotation=90)
+
+                    ax.get_yaxis().set_visible(False)
+                    ax.xaxis.set_ticks_position('none') 
+                    if min(val_list) < 0:
+                        xmin =  min(val_list) * 1.2 
+                    elif min(val_list) >= 0:
+                        xmin = min(val_list) - (max(val_list) * 0.2) - 1
+
+                    if max(val_list) <= 0:
+                        xmax = max(val_list) - (min(val_list) * 0.2) + 1
+                    else:
+                        xmax = max(val_list) * 1.2 + 1
+
+                    ax.hlines(0, xmin, xmax, color='black')
+                    ax.set_xlim(xmin, xmax)
+
+                    ax.set_ylim(0, y_level + 0.5)
+
+                    ax.set_xlabel('Activity')
+                    ax.set_title(plt_title)
+
+                    plt.tight_layout()
+
+                    pdf_pages.savefig(fig)
+                    plt.close(fig)
+
+
+    def graph_oneD_bars(self, plt_dict, grouping=False):
+        pdf_file_name = self.generate_filename()
+        pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        if os.path.exists(pdf_file_path):
+            pdf_file_name = self.filename_helper(pdf_file_name, '.pdf')
+            pdf_file_path = f"{self.save_directory}{pdf_file_name}.pdf"
+
+        fish_logger.log(Fish_Log.INFO, f"Pdf File Name {pdf_file_name}, Pdf File Path {pdf_file_path}")
+
+        with pdf.PdfPages(pdf_file_path) as pdf_pages:
+            if grouping:
+                for plt_label, (val_list, std_list, cndt_list, clr_lst, clr_lgnd) in plt_dict.items():
+                    fig, ax = plt.subplots(figsize=(14.5, 5.5))
+
+                    sorted_indices = sorted(range(len(val_list)), key=lambda i: val_list[i])
+                    val_list = [val_list[i] for i in sorted_indices]
+                    std_list = [std_list[i] for i in sorted_indices]
+                    cndt_list = [cndt_list[i] for i in sorted_indices]
+                    clr_lst = [clr_lst[i] for i in sorted_indices]
+
+                    if "+" in plt_label:
+                        plt_title = self.generate_title(assay=plt_label.split("+")[0], stimulus=plt_label.split("+")[1])
+                    else: 
+                        plt_title = self.generate_title(assay=plt_label)
+
+                    bar_positions = range(len(val_list))
+                    ax.bar(bar_positions, val_list, yerr=std_list, capsize=5,
+                        color=clr_lst, edgecolor='black', align='center')
+                    
+                    ax.set_xticks(bar_positions)
+                    ax.set_xticklabels(cndt_list, rotation=90, ha='center', fontsize=8)
+
+                    legend_patches = [mpatches.Patch(color=clr_info_tup[1], label=clr_info_tup[0]) for clr_info_tup in clr_lgnd]
+                    ax.legend(handles=legend_patches, loc='center left', bbox_to_anchor=(1, 0.5), title='Statistically Separate Groups')
+                    
+                    ax.set_ylabel('Activity')
+                    ax.set_title(plt_title)
+
+                    plt.tight_layout()
+                    pdf_pages.savefig(fig)
+                    plt.close(fig)
+
+            else:
+                for plt_label, (val_list, std_list, cndt_list) in plt_dict.items():
+                    fig, ax = plt.subplots(figsize=(14.5, 5.5))
+
+                    # Sort values from low to high along with associated lists
+                    sorted_indices = sorted(range(len(val_list)), key=lambda i: val_list[i])
+                    val_list = [val_list[i] for i in sorted_indices]
+                    std_list = [std_list[i] for i in sorted_indices]
+                    cndt_list = [cndt_list[i] for i in sorted_indices]
+
+                    # Determine title
+                    if "+" in plt_label:
+                        plt_title = self.generate_title(assay=plt_label.split("+")[0], stimulus=plt_label.split("+")[1])
+                    else: 
+                        plt_title = self.generate_title(assay=plt_label)
+
+                    # Plot bar graph without color list
+                    bar_positions = range(len(val_list))
+                    ax.bar(bar_positions, val_list, yerr=std_list, capsize=5,
+                        color='c', edgecolor='black', align='center')
+
+                    # Set x-axis labels and their positions
+                    ax.set_xticks(bar_positions)
+                    ax.set_xticklabels(cndt_list, rotation=90, ha='center', fontsize=8)
+
+                    # Labels and title
+                    ax.set_ylabel('Activity')
+                    ax.set_title(plt_title)
+
+                    plt.tight_layout()
+                    pdf_pages.savefig(fig)
+                    plt.close(fig)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -1,5 +1,6 @@
 from FishLog import Fish_Log
 import HardInformation
+import math
 
 
 # % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % 
@@ -46,8 +47,6 @@ class Sauron_Primary_Analysis():
 
     @classmethod
     def average_primary_analysis(cls, srn_prim_anly_lst):
-        # add logging !
-        
         status = Sauron_Primary_Analysis.primary_analysis_info_checker(srn_prim_anly_lst)
         if status:
             bio_analysis = Sauron_Primary_Analysis.__new__(Sauron_Primary_Analysis)
@@ -77,6 +76,8 @@ class Sauron_Primary_Analysis():
             if split_dict_list:
                 bio_analysis.split_dictionary = Sauron_Primary_Analysis.split_dictionary_averager(split_dict_list, avg, srn_prim_anly_lst[0].split_status) 
             
+            fish_logger.log(Fish_Log.INFO, f'averaging primary analsises; runs : {status[1]}, averaged {avg}')
+
             return bio_analysis
 
 
@@ -169,11 +170,11 @@ class Sauron_Primary_Analysis():
                         res =  cmbnd_dict[trt][cnc][0]
                     else:
                         mi_avgs_lst = [result_tuple[0] for result_tuple in cmbnd_dict[trt][cnc]]
-                        mi_meds_lst = [result_tuple[1] for result_tuple in cmbnd_dict[trt][cnc]]
                         mi_st_devs_lst = [result_tuple[2] for result_tuple in cmbnd_dict[trt][cnc]]
 
-                        res = Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_meds_lst, mi_st_devs_lst)
+                        res = Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_st_devs_lst)
                         
+
                     if trt in avg_dict.keys():
                         avg_dict[trt].update({cnc : res})
                     else:
@@ -192,29 +193,21 @@ class Sauron_Primary_Analysis():
                     avg_dict.update({grp : cmbnd_dict[grp][0]})
                 else:
                     mi_avgs_lst = [result_tuple[0] for result_tuple in cmbnd_dict[grp]]
-                    mi_meds_lst = [result_tuple[1] for result_tuple in cmbnd_dict[grp]]
                     mi_st_devs_lst = [result_tuple[2] for result_tuple in cmbnd_dict[grp]]
 
-                    avg_dict.update({grp : Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_meds_lst, mi_st_devs_lst)})
-                        
+                    avg_dict.update({grp : Sauron_Primary_Analysis.b_average_analysis(mi_avgs_lst, mi_st_devs_lst)})
+                    
         return avg_dict
 
 
     @staticmethod
-    def b_average_analysis(mi_average_lists, mi_median_lists, st_dev_lists):
+    def b_average_analysis(mi_average_lists, st_dev_lists):
         max_avg_len = None
         for mi_list in mi_average_lists:
             if not max_avg_len:
                 max_avg_len = len(mi_list)
             elif len(mi_list) < max_avg_len:
                 max_avg_len = len(mi_list)
-
-        max_med_len = None
-        for mi_list in mi_median_lists:
-            if not max_med_len:
-                max_med_len = len(mi_list)
-            elif len(mi_list) < max_med_len:
-                max_med_len = len(mi_list)
 
         max_std_len = None
         for mi_list in st_dev_lists:
@@ -224,29 +217,16 @@ class Sauron_Primary_Analysis():
                 max_std_len = len(mi_list)
         
         avg_avg_lst = []
+        avg_std_v_lst = []
         for avg_mi in range(0, max_avg_len):
             avg_mi_repl = [mi_average_lists[repl][avg_mi] for repl in range(0, len(mi_average_lists))]
             avg_avg = sum(avg_mi_repl) / len(avg_mi_repl)
             avg_avg_lst.append(avg_avg)
 
-        med_med_lst = []
-        for med_mi in range(0, max_med_len):
-            med_mi_repl = [mi_median_lists[repl][med_mi] for repl in range(0, len(mi_median_lists))]
-            sorted_med_mi_repl = sorted(med_mi_repl)
-            n = len(sorted_med_mi_repl)
-            if n % 2 == 0:
-                med_med = (sorted_med_mi_repl[n // 2 - 1] + sorted_med_mi_repl[n // 2]) / 2
-            else:
-                med_med = sorted_med_mi_repl[n // 2]
-            med_med_lst.append(med_med)
+            avg_std = Sauron_Primary_Analysis.st_dev_calc(avg_mi_repl) / len(avg_mi_repl)
+            avg_std_v_lst.append(avg_std)
 
-        avg_std_v_lst = []
-        for std_v in range(0, max_std_len):
-            std_v_repl = [st_dev_lists[repl][std_v] for repl in range(0, len(st_dev_lists))]
-            avg_std_v = sum(std_v_repl) / len(std_v_repl)
-            avg_std_v_lst.append(avg_std_v)
-
-        return (avg_avg_lst, med_med_lst, avg_std_v_lst)
+        return (avg_avg_lst, avg_std_v_lst)
 
 
     @staticmethod  
@@ -287,7 +267,7 @@ class Sauron_Primary_Analysis():
                             cmbnd_dict[group].append(dct[group])
 
                 for grp in cmbnd_dict.keys():
-                    avg_dict[grp] = Sauron_Primary_Analysis.split_assay_dict_averager(cmbnd_dict[trt][cnc])
+                    avg_dict[grp] = Sauron_Primary_Analysis.split_assay_dict_averager(cmbnd_dict[grp])
             
             return avg_dict
         
@@ -328,6 +308,7 @@ class Sauron_Primary_Analysis():
                 aggr_dict[grp] = Sauron_Primary_Analysis.split_assay_dict_collector(cmbnd_dict[grp])
 
             return aggr_dict
+        
 
     @staticmethod
     def split_assay_dict_averager(assay_dct_lst):
@@ -335,12 +316,11 @@ class Sauron_Primary_Analysis():
         asy_keys = assay_dct_lst[0].keys()
 
         for asy in asy_keys:
-            assay_mi_avg = [dct[asy][0] for dct in assay_dct_lst]
-            assay_mi_med = [dct[asy][1] for dct in assay_dct_lst]
-            assay_st_dev = [dct[asy][2] for dct in assay_dct_lst]
-            assay_stim_lst = [dct[asy][3] for dct in assay_dct_lst]
+            assay_mi = [dct[asy][0] for dct in assay_dct_lst]
+            assay_st_dev = [dct[asy][1] for dct in assay_dct_lst]
+            assay_stim_lst = [dct[asy][2] for dct in assay_dct_lst]
 
-            avg_asy_mi_avg, med_asy_mi_med, avg_asy_st_dev = Sauron_Primary_Analysis.b_average_analysis(assay_mi_avg, assay_mi_med, assay_st_dev)
+            avg_asy_mi_avg, avg_asy_st_dev = Sauron_Primary_Analysis.b_average_analysis(assay_mi, assay_st_dev)
 
             n_stims = len(assay_stim_lst[0])
             stm_list = []
@@ -349,25 +329,17 @@ class Sauron_Primary_Analysis():
                 for stim in range(0, n_stims):
                     stim_names = [assay_stim_lst[lst][stim][0] for lst in range(0, len(assay_stim_lst))]
                     stim_avg = [assay_stim_lst[lst][stim][1] for lst in range(0, len(assay_stim_lst))]
-                    stim_med = [assay_stim_lst[lst][stim][2] for lst in range(0, len(assay_stim_lst))]
-                    stim_st_dev = [assay_stim_lst[lst][stim][3] for lst in range(0, len(assay_stim_lst))]
-                    stim_starts = [assay_stim_lst[lst][stim][4] for lst in range(0, len(assay_stim_lst))]
-                    stim_ends = [assay_stim_lst[lst][stim][5] for lst in range(0, len(assay_stim_lst))]
+                    stim_st_dev = [assay_stim_lst[lst][stim][2] for lst in range(0, len(assay_stim_lst))]
+                    stim_starts = [assay_stim_lst[lst][stim][3] for lst in range(0, len(assay_stim_lst))]
+                    stim_ends = [assay_stim_lst[lst][stim][4] for lst in range(0, len(assay_stim_lst))]
                     avg_stim_avg = sum(stim_avg) / len(stim_avg)
-
-                    sorted_stim_med = sorted(stim_med)
-                    n = len(sorted_stim_med)
-                    if n % 2 == 0:
-                        med_stim_med = (sorted_stim_med[n // 2 - 1] + sorted_stim_med[n // 2]) / 2
-                    else:
-                        med_stim_med = sorted_stim_med[n // 2]
 
                     avg_stim_st_dev = sum(stim_st_dev) / len(stim_st_dev)
 
-                    stm_list.append((stim_names[0], avg_stim_avg, med_stim_med, avg_stim_st_dev, stim_starts[0], stim_ends[0]))
+                    stm_list.append((stim_names[0], avg_stim_avg, avg_stim_st_dev, stim_starts[0], stim_ends[0]))
 
-            rtn_dict[asy] = (avg_asy_mi_avg, med_asy_mi_med, avg_asy_st_dev, stm_list)
-
+            rtn_dict[asy] = (avg_asy_mi_avg, avg_asy_st_dev, stm_list)
+            
         return rtn_dict
 
 
@@ -393,7 +365,6 @@ class Sauron_Primary_Analysis():
             rtn_dict[asy] = (assay_mi_lsts, stm_list)
 
         return rtn_dict
-
 
 
     dispersion_error = {
@@ -444,7 +415,19 @@ class Sauron_Primary_Analysis():
         '10' : ['A10', 'B10', 'C10', 'D10', 'E10', 'F10', 'G10', 'H10'],
         '11' : ['A11', 'B11', 'C11', 'D11', 'E11', 'F11', 'G11', 'H11'],
         '12' : ['A12', 'B12', 'C12', 'D12', 'E12', 'F12', 'G12', 'H12']
-}
+    }
+    
+    split_response_calculation = {
+        'light' : 'avg',
+        'sound' : 'max',
+        'purple_LED' : 'avg',
+        'green_LED' : 'avg',
+        'blue_LED' : 'avg',
+        'red_LED' : 'avg',
+        'solenoid' : 'max',
+        'soft_solenoid' : 'max',
+        'MP3' : 'max'
+    } # sum, med, max, avg, st_dev available 
 
 
     def __init__(self, analysis_type, run_number, user_analysis_group, user_group, user_analysis_calculations, raw_run_info, battery_info, frame_rate, no_stim_search):
@@ -503,7 +486,6 @@ class Sauron_Primary_Analysis():
             self.sort_dictionary(self.user_group)
 
         else: 
-            # self.user_analysis_group == 'well' 
             self.restructure_dictionary()
     
     
@@ -591,7 +573,7 @@ class Sauron_Primary_Analysis():
                         
                         squared_diff = [(x - mi_avg) ** 2 for x in mi_repl]
                         variance = sum(squared_diff) / len(mi_repl)
-                        st_dev = variance ** 0.5
+                        st_dev = math.sqrt(variance)
                         if st_dev == 0:
                             st_dev = 0.01
                         
@@ -636,7 +618,8 @@ class Sauron_Primary_Analysis():
                     
                     squared_diff = [(x - mi_avg) ** 2 for x in mi_repl]
                     variance = sum(squared_diff) / len(mi_repl)
-                    st_dev = variance ** 0.5
+                    st_dev = math.sqrt(variance)
+                    
                     if st_dev == 0:
                         st_dev = 0.01
                     
@@ -651,10 +634,10 @@ class Sauron_Primary_Analysis():
                     mi_st_dev_list.append(st_dev)
                     mi_med_list.append(mi_med)
                 
-                else:
-                    mi_avg_list = self.sorted_dictionary[group][0] # no actual average
-                    mi_st_dev_list = [0 for i in range(0, len(mi_avg_list))]
-                    mi_med_list = self.sorted_dictionary[group][0] # no actual median
+            else:
+                mi_avg_list = self.sorted_dictionary[group][0] # no actual average
+                mi_st_dev_list = [0 for i in range(0, len(mi_avg_list))]
+                mi_med_list = self.sorted_dictionary[group][0] # no actual median
 
             average_dict[group] = (mi_avg_list, mi_med_list, mi_st_dev_list)
 
@@ -758,7 +741,6 @@ class Sauron_Primary_Analysis():
                 assay_end = len(mi_average)
 
             assay_avg = mi_average[assay_start:assay_end]
-            assay_median = mi_median[assay_start:assay_end]
             assay_st_dev = mi_st_dev[assay_start:assay_end]
 
             for stimulus in assay[2]:
@@ -777,16 +759,52 @@ class Sauron_Primary_Analysis():
                     fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF MI RANGE {len(mi_average)} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_end = assay_end
 
-                stimulus_avg = self.stimulus_calculator(mi_average[stimulus_start:stimulus_end])
-                stimulus_median = self.stimulus_calculator(mi_median[stimulus_start:stimulus_end])
-                stimulus_st_dev = self.stimulus_calculator(mi_st_dev[stimulus_start:stimulus_end], type='st_dev')
+                if stimulus_name in Sauron_Primary_Analysis.split_response_calculation.keys():
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation[stimulus_name]
+                elif 'LED' in stimulus_name:
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation['light']
+                elif 'solenoid' in stimulus_name or 'MP3' in stimulus_name:
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation['sound']
 
-                stimulus_list.append((stimulus_name, stimulus_avg, stimulus_median, stimulus_st_dev, stimulus_start, stimulus_end))
+                if calc_type == 'avg':
+                    stimulus_resp = self.stimulus_calculator(mi_average[stimulus_start:stimulus_end], ctype=calc_type)
+                    stimulus_st_dev = self.stimulus_calculator(mi_average[stimulus_start:stimulus_end], ctype='st_dev')
+
+                elif calc_type == 'max':
+                    std_ref = mi_st_dev[stimulus_start:stimulus_end]
+                    stimulus_resp = 0
+                    stimulus_st_dev = 0 
+                    for i, mi in enumerate(mi_average[stimulus_start:stimulus_end]):
+                        if mi >= stimulus_resp:
+                            stimulus_resp = mi
+                            stimulus_st_dev = std_ref[i]
+                
+                elif calc_type == 'sum':
+                    stimulus_resp = self.stimulus_calculator(mi_average[stimulus_start:stimulus_end], ctype=calc_type)
+                    stimulus_st_dev = self.stimulus_calculator(mi_st_dev[stimulus_start:stimulus_end], ctype=calc_type)
+
+                elif calc_type == 'med':
+                    indx_st = sorted((value, st_dev, index) for index, (value, st_dev) 
+                                     in enumerate(zip(mi_average[stimulus_start:stimulus_end], mi_st_dev[stimulus_start:stimulus_end])))
+
+                    n = len(indx_st)
+
+                    if n % 2 == 1:
+                        stimulus_resp = indx_st[n // 2][0]
+                        stimulus_st_dev = indx_st[n // 2][1]
+                    else:
+                        mid1_value, mid1_stdev, mid1_index = indx_st[n // 2 - 1]
+                        mid2_value, mid2_stdev, mid2_index = indx_st[n // 2]
+                        
+                        stimulus_resp = (mid1_value + mid2_value) / 2
+                        stimulus_st_dev = (mid1_stdev + mid2_stdev) / 2
+            
+                stimulus_list.append((stimulus_name, stimulus_resp, stimulus_st_dev, stimulus_start, stimulus_end))
             
             if not stimulus_list:
                 self.no_stim_assays.append(assay_name)
 
-            assay_dict[assay_name] = (assay_avg, assay_median, assay_st_dev, stimulus_list)
+            assay_dict[assay_name] = (assay_avg, assay_st_dev, stimulus_list)
         
         return assay_dict
     
@@ -829,7 +847,14 @@ class Sauron_Primary_Analysis():
                     fish_logger.log(Fish_Log.WARNING, f"STIMULUS END INDEX OUT OF MI RANGE {len(mi_list[0])} : Assay Name {assay_name}, Assay Start {assay_start}, Assay End {assay_end}, Stimulus Name{stimulus_name}, Stimulus Start {stimulus_start}, Stimulus End {stimulus_end}, Frame Adjustment, {self.adjust_frame_index}")
                     stimulus_end = assay_end
 
-                stim_mi_list = [self.stimulus_calculator(mi_values[stimulus_start:stimulus_end]) for mi_values in mi_list]
+                if stimulus_name in Sauron_Primary_Analysis.split_response_calculation.keys():
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation[stimulus_name]
+                elif 'LED' in stimulus_name:
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation['light']
+                elif 'solenoid' in stimulus_name or 'MP3' in stimulus_name:
+                    calc_type = Sauron_Primary_Analysis.split_response_calculation['sound']
+
+                stim_mi_list = [self.stimulus_calculator(mi_values[stimulus_start:stimulus_end], ctype=calc_type) for mi_values in mi_list]
 
                 stimulus_list.append((stimulus_name, stim_mi_list))
 
@@ -846,21 +871,27 @@ class Sauron_Primary_Analysis():
         n = len(sorted_data)
         return sorted_data[n // 2] if n % 2 == 1 else (sorted_data[n // 2 - 1] + sorted_data[n // 2]) / 2
 
-    
-    def st_dev_calc(self, mi_list):
-        n = len(mi_list)
-        return ((sum((x - (sum(mi_list) / n)) ** 2 for x in mi_list) / n) ** 0.5) if n > 0 else 0
+
+    @staticmethod
+    def st_dev_calc(mi_list):
+        average = sum(mi_list) / len(mi_list)
+        squared_diff = [(mi - average) ** 2 for mi in mi_list]
+        variance = sum(squared_diff) / len(mi_list)
+        st_dev = math.sqrt(variance)
+
+        return st_dev
 
 
-    def stimulus_calculator(self, stimulus_mi_list, type='max'):
+    def stimulus_calculator(self, stimulus_mi_list, ctype='max'):
         calc_resp_dict = {
             'max' : max(stimulus_mi_list),
             'avg' : sum(stimulus_mi_list) / len(stimulus_mi_list),
             'med' : self.med_calc(stimulus_mi_list),
+            'sum' : sum(stimulus_mi_list),
             'st_dev' : self.st_dev_calc(stimulus_mi_list)
         }
     
-        return calc_resp_dict[type]
+        return calc_resp_dict[ctype]
     
 
     def finalize_info(self):
@@ -879,9 +910,8 @@ class Sauron_Primary_Analysis():
                             if self.user_analysis_calculations == 'full' and assay not in self.no_stim_assays:
                                 assay_avg = sum(self.split_dictionary[treatment][concentration][assay][0]) / len(self.split_dictionary[treatment][concentration][assay][0])
                                 
-                                for stimulus in self.split_dictionary[treatment][concentration][assay][3]:
+                                for stimulus in self.split_dictionary[treatment][concentration][assay][2]:
                                     stim_cntr += 1
-                                    
                                     if stimulus[1] < assay_avg:
                                         zero_cntr += 1  
 
@@ -890,39 +920,32 @@ class Sauron_Primary_Analysis():
                                 assay_avg = sum(avg_lst) / len(avg_lst)
                                 
                                 for stimulus_list in self.split_dictionary[treatment][concentration][assay][1]:
-                                    for lst in stimulus_list:
-                                        for stimulus in lst:
-                                            stim_cntr += 1
-                                            avg_stm = sum(stimulus[1]) / len(stimulus[1])
-                                            
-                                            if avg_stm < assay_avg:
-                                                zero_cntr += 1
+                                    for stim in stimulus_list:
+                                        stim_cntr += 1
+                                        if stim < assay_avg:
+                                            zero_cntr += 1
 
-            elif self.user_analysis_group == 'well' or self.user_analysis_group == 'group':
+            elif self.user_analysis_group == 'group': 
                 for treatment in self.split_dictionary.keys():
                     for assay in self.split_dictionary[treatment].keys():
                         if self.user_analysis_calculations == 'full' and assay not in self.no_stim_assays:
-                            for stimulus in self.split_dictionary[treatment][assay][3]:
-                                assay_avg = sum(self.split_dictionary[treatment][assay][0]) / len(self.split_dictionary[treatment][assay][0])
-                                
-                                for stimulus in self.split_dictionary[treatment][assay][3]:
-                                    stim_cntr += 1
-                                    
-                                    if stimulus[1] < assay_avg:
-                                        zero_cntr += 1
+                            assay_avg = sum(self.split_dictionary[treatment][assay][0]) / len(self.split_dictionary[treatment][assay][0])
+
+                            for stimulus in self.split_dictionary[treatment][assay][2]:
+                                stim_cntr += 1
+                                if stimulus[1] < assay_avg:
+                                    zero_cntr += 1
+
 
                         elif assay not in self.no_stim_assays:
                             avg_lst = [sum(assay_mi) / len(assay_mi) for assay_mi in  self.split_dictionary[treatment][assay][0]]
                             assay_avg = sum(avg_lst) / len(avg_lst)
                             
                             for stimulus_list in self.split_dictionary[treatment][assay][1]:
-                                for lst in stimulus_list:
-                                    for stimulus in lst:
-                                        stim_cntr += 1
-                                        avg_stm = sum(stimulus[1]) / len(stimulus[1])
-                                        
-                                        if avg_stm < assay_avg:
-                                            zero_cntr += 1
+                                for stim in stimulus_list:
+                                    stim_cntr += 1
+                                    if stim < assay_avg:
+                                        zero_cntr += 1
             
             responses = stim_cntr - zero_cntr
             response_cutoff = 10 * responses
@@ -1206,14 +1229,206 @@ class Sauron_Secondary_Analysis():
         self.sauron_primary_analysis = sauron_primary_analysis
         self.split_str = split_str
 
+        self.responsive_dictionary = {}
+        self.habituation_dictionary = {}
+        self.prepulse_inhibition_dictionary = {}
+        self.cutoff_percentage = 0.20 # for determining habituation slope
+        self.habituation_responsive_dictionary = {}
+        self.group_response_dictionary = {}
+        self.group_habituation_dictionary = {}
+        self.group_prepulse_inhibition_dictionary = {}
+
         self.warning = {}
 
 
-    def habituation(self):
-        self.habituation_dictionary = None
-        self.cutoff_percentage = 0.07 # for determining habituation slope
+    def responsiveness(self):
+        # ['assay_mi_average', 'assay_mi_median', 'assay_mi_max', 'stimulus_average', 'stimulus_median', 'stimulus_min']
+        # # # assays without stimuli should use assay mi calculations !
+        assay_response_caclculations = {
+            "Assay_Name_Example" : 'default',
+            "no_stimulus" : 'assay_mi_average',
+            "background" : 'assay_mi_sum',
+            "5min_background" : 'assay_mi_sum',
+            "StrobeBlue250ms2" : 'assay_mi_sum',
+            "StrobeGreen250ms" : 'assay_mi_sum'
+        }
+        
+        if self.sauron_primary_analysis.user_analysis_group == 'treatment':
+            for treatment in self.sauron_primary_analysis.split_dictionary.keys():
+                for concentration in self.sauron_primary_analysis.split_dictionary[treatment].keys():
+                    for assay in self.sauron_primary_analysis.split_dictionary[treatment][concentration].keys():
+                        if assay in assay_response_caclculations.keys():
+                            response = self.responsive_calculator(self.sauron_primary_analysis.split_dictionary[treatment][concentration][assay], tpe=assay_response_caclculations[assay])
+                        elif not self.sauron_primary_analysis.split_dictionary[treatment][concentration][assay][2]:
+                            response = self.responsive_calculator(self.sauron_primary_analysis.split_dictionary[treatment][concentration][assay], tpe=assay_response_caclculations['no_stimulus'])
+                        else:
+                            response = self.responsive_calculator(self.sauron_primary_analysis.split_dictionary[treatment][concentration][assay])
 
-        # require full calculations to call 
+                        if isinstance(response, dict):
+                            for stimulus in response.keys():
+                                asy_stim_name = f"{assay+stimulus}"
+
+                                if asy_stim_name not in self.responsive_dictionary.keys():
+                                    self.responsive_dictionary[asy_stim_name] = {treatment : {concentration : response[stimulus]}}
+                                elif treatment not in self.responsive_dictionary[asy_stim_name].keys():
+                                    self.responsive_dictionary[asy_stim_name].update({treatment : {concentration : response[stimulus]}})
+                                else:
+                                    self.responsive_dictionary[asy_stim_name][treatment].update({concentration : response[stimulus]})
+                        
+                        else:
+                            asy_stim_name = f"{assay}"
+                            if asy_stim_name not in self.responsive_dictionary.keys():
+                                self.responsive_dictionary[asy_stim_name] = {treatment : {concentration : response}}
+                            elif treatment not in self.responsive_dictionary[asy_stim_name].keys():
+                                self.responsive_dictionary[asy_stim_name].update({treatment : {concentration : response}})
+                            else:
+                                self.responsive_dictionary[asy_stim_name][treatment].update({concentration : response})
+        
+        else:
+            for group in self.sauron_primary_analysis.split_dictionary.keys():
+                for assay in self.sauron_primary_analysis.split_dictionary[group].keys():
+                    if assay in assay_response_caclculations.keys():
+                        response = self.responsive_calculator(self.sauron_primary_analysis.split_dictionary[group][assay], tpe=assay_response_caclculations[assay])
+                    else:
+                        response = self.responsive_calculator(self.sauron_primary_analysis.split_dictionary[group][assay])
+                    
+                    if isinstance(response, dict):
+                        for stimulus in response.keys():
+                            asy_stim_name = f"{assay+stimulus}"
+                            if asy_stim_name not in self.responsive_dictionary.keys():
+                                self.responsive_dictionary[asy_stim_name] = {group : response[stimulus]}
+                            else:
+                                self.responsive_dictionary[asy_stim_name].update({group : response[stimulus]})
+                            
+                    else:
+                        asy_stim_name = f"{assay}"
+                        if asy_stim_name not in self.responsive_dictionary.keys():
+                            self.responsive_dictionary[asy_stim_name] = {group : response}
+                        else:
+                            self.responsive_dictionary[asy_stim_name].update({group : response})
+
+        fish_logger.log(Fish_Log.INFO, f'responsive dictionary {list(self.responsive_dictionary.keys())}')
+
+    
+    def habituation_response(self):
+        if self.habituation_dictionary:
+            if self.sauron_primary_analysis.user_analysis_group == 'treatment':
+                for treatment in self.habituation_dictionary.keys():
+                    for concentration in self.habituation_dictionary[treatment].keys():
+                        for assay in self.habituation_dictionary[treatment][concentration].keys():
+                            for stimulus in self.habituation_dictionary[treatment][concentration][assay].keys():
+                                assay_stim_str = f"{assay} :: {stimulus}"
+                                if assay_stim_str not in self.habituation_responsive_dictionary.keys():
+                                    self.habituation_responsive_dictionary[assay_stim_str] = {treatment : {concentration : (-1 * self.habituation_dictionary[treatment][concentration][assay][stimulus][2], self.habituation_dictionary[treatment][concentration][assay][stimulus][5])}}
+                                elif treatment not in self.habituation_responsive_dictionary[assay_stim_str].keys():
+                                    self.habituation_responsive_dictionary[assay_stim_str].update({treatment : {concentration : (-1 * self.habituation_dictionary[treatment][concentration][assay][stimulus][2], self.habituation_dictionary[treatment][concentration][assay][stimulus][5])}})
+                                else:
+                                    self.habituation_responsive_dictionary[assay_stim_str][treatment].update({concentration : (-1 * self.habituation_dictionary[treatment][concentration][assay][stimulus][2], self.habituation_dictionary[treatment][concentration][assay][stimulus][5])})
+            
+            else:
+                for group in self.habituation_dictionary.keys():
+                    for assay in self.habituation_dictionary[group].keys():
+                        for stimulus in self.habituation_dictionary[group][assay].keys():
+                                assay_stim_str = f"{assay} :: {stimulus}"
+                                if assay_stim_str not in self.habituation_responsive_dictionary.keys():
+                                    self.habituation_responsive_dictionary[assay_stim_str] = {group : (-1 * self.habituation_dictionary[group][assay][stimulus][2], self.habituation_dictionary[group][assay][stimulus][5])}
+                                else:
+                                    self.habituation_responsive_dictionary[assay_stim_str].update({group : (-1 * self.habituation_dictionary[group][assay][stimulus][2], self.habituation_dictionary[group][assay][stimulus][5])})
+
+        fish_logger.log(Fish_Log.INFO, f'habituation response dictionary {list(self.habituation_responsive_dictionary.keys())}')
+
+
+    def grouping(self):        
+        if self.responsive_dictionary:
+            self.group_response_dictionary = self.activity_grouper(self.responsive_dictionary)
+            fish_logger.log(Fish_Log.INFO, f'group response dictionary {list(self.group_response_dictionary.keys())}')
+
+        if self.habituation_responsive_dictionary:
+            self.group_habituation_dictionary = self.activity_grouper(self.habituation_responsive_dictionary)
+            fish_logger.log(Fish_Log.INFO, f'group habituation dictionary {list(self.group_habituation_dictionary.keys())}')
+        
+        if self.prepulse_inhibition_dictionary:
+            self.group_prepulse_inhibition_dictionary = self.activity_grouper(self.prepulse_inhibition_dictionary)
+            fish_logger.log(Fish_Log.INFO, f'group ppi dictionary {list(self.prepulse_inhibition_dictionary.keys())}')
+    
+
+    def activity_grouper(self, dictionary):
+        sigma = 1
+        return_dict = {}
+        if self.sauron_primary_analysis.user_analysis_group == 'treatment':
+            for asy_stm in dictionary.keys():
+                full_tup_lst = [(dictionary[asy_stm][trt][cnc][0], dictionary[asy_stm][trt][cnc][1], (dictionary[asy_stm][trt][cnc][0] - sigma * dictionary[asy_stm][trt][cnc][1]), (dictionary[asy_stm][trt][cnc][0] + sigma * dictionary[asy_stm][trt][cnc][1]), trt, cnc) for trt in dictionary[asy_stm].keys() for cnc in dictionary[asy_stm][trt].keys()]
+
+                web = []
+                for tup in full_tup_lst:
+                    connections = []
+                    for trt in dictionary[asy_stm].keys(): 
+                        for cnc in dictionary[asy_stm][trt].keys():
+                            if dictionary[asy_stm][trt][cnc][0] >= tup[2] and dictionary[asy_stm][trt][cnc][0] <= tup[3]:
+                                c_tup = (trt, cnc)
+                                connections.append(c_tup)
+                    
+                    web_tup = (tup[4], tup[5], tup[0], tup[1], tup[2], tup[3], connections, len(connections))
+                    web.append(web_tup)
+
+                sorted_web = sorted(web, key=lambda item: (item[7], item[2]))
+
+                group_dict = {
+                    f"{sorted_web[0][0]} {sorted_web[0][1]}" : (sorted_web[0][2], sorted_web[0][3], sorted_web[0][6])
+                }
+
+                key_dict = {(point[0], point[1]) : (point[2], point[3]) for point in sorted_web}
+
+                for point in sorted_web:
+                    not_found = True
+                    point_tup = (point[0], point[1])
+                    for trt_cnc, srt_tup in group_dict.items():
+                        if point_tup in srt_tup[2]:
+                            not_found = False
+                    
+                    if not_found:
+                        name = f"{point[0]} {point[1]}"
+                        group_dict.update({name : (point[2], point[3], point[6])})
+                return_dict[asy_stm] = (group_dict, key_dict)
+
+        else:
+            for asy_stm in dictionary.keys():
+                full_tup_lst = [(dictionary[asy_stm][grp][0], dictionary[asy_stm][grp][1], (dictionary[asy_stm][grp][0] - sigma * dictionary[asy_stm][grp][1]), (dictionary[asy_stm][grp][0] + sigma * dictionary[asy_stm][grp][1]), grp) for grp in dictionary[asy_stm].keys()]
+                
+                web = []
+                for tup in full_tup_lst:
+                    connections = []
+                    for grp in dictionary[asy_stm].keys(): 
+                        if dictionary[asy_stm][grp][0] >= tup[2] and dictionary[asy_stm][grp][0] <= tup[3]:
+                            connections.append(grp)
+                    
+                    connect_tup = (tup[4], tup[0], tup[1], tup[2], tup[3], connections, len(connections))
+                    web.append(connect_tup)
+
+                sorted_web = sorted(web, key=lambda item: (item[6], item[2]))
+
+                group_dict = {
+                    sorted_web[0][0] : (sorted_web[0][1], sorted_web[0][2], sorted_web[0][5])
+                }
+                
+                key_dict = {point[0] : (point[1], point[2]) for point in sorted_web}
+                curr_total = [sorted_web[0][0]]
+                for point in sorted_web:
+                    not_found = True
+                    for grp, srt_tup in group_dict.items():
+                        if point[0] in srt_tup[2]:
+                            not_found = False
+                    
+                    if not_found:
+                        if point[0] not in curr_total:
+                            group_dict.update({point[0] : (point[1], point[2], point[5])})
+                            curr_total.append(point[0])
+                return_dict[asy_stm] = (group_dict, key_dict) 
+        
+        return return_dict
+
+
+    def habituation(self):
         habituation_dict = {}
         habituation_assays = ['10s Habituation Assay', '5s Habituation Assay', '2.5s Habituation Assay', 'softTap20sISI', 'softTap10sISI', 'softTap7sISI', 'softTap5sISI', 'softTap2pt5sISI', 'softTap1sISI']
         habituation_stimuli = ['soft_solenoid']
@@ -1230,7 +1445,7 @@ class Sauron_Secondary_Analysis():
                         if assay in habituation_assays:
                             assays_found.add(assay)
                             stimulus_dictionary = {}
-                            for stimulus_name, stimulus_avg, stimulus_med, stimulus_st_dev, stim_st, stim_ed in split_dictionary[treatment][concentration][assay][3]:
+                            for stimulus_name, stimulus_avg, stimulus_st_dev, stim_st, stim_ed in split_dictionary[treatment][concentration][assay][2]:
                                 if stimulus_name in habituation_stimuli:
                                     stimuli_found.add(stimulus_name)
                                     if stimulus_name not in stimulus_dictionary.keys():
@@ -1242,9 +1457,9 @@ class Sauron_Secondary_Analysis():
                             stim_habit_dict = self.stimulus_dict_calcs(stimulus_dictionary) #assay_mi_average, assay_st_dev)
                     
                             if treatment not in habituation_dict.keys():
-                                habituation_dict[treatment] = {concentration : {assay :stim_habit_dict}}
+                                habituation_dict[treatment] = {concentration : {assay : stim_habit_dict}}
                             elif concentration not in habituation_dict[treatment].keys():
-                                habituation_dict[treatment][concentration] = {assay :stim_habit_dict}
+                                habituation_dict[treatment][concentration] = {assay : stim_habit_dict}
                             else:
                                 habituation_dict[treatment][concentration][assay] = stim_habit_dict
 
@@ -1254,7 +1469,7 @@ class Sauron_Secondary_Analysis():
                     if assay in habituation_assays:
                         assays_found.add(assay)
                         stimulus_dictionary = {}
-                        for stimulus_name, stimulus_avg, stimulus_med, stimulus_st_dev, stim_st, stim_ed in split_dictionary[group][assay][3]:
+                        for stimulus_name, stimulus_avg, stimulus_st_dev, stim_st, stim_ed in split_dictionary[group][assay][2]:
                             if stimulus_name in habituation_stimuli:
                                 stimuli_found.add(stimulus_name)
                                 if stimulus_name not in stimulus_dictionary.keys():
@@ -1273,6 +1488,61 @@ class Sauron_Secondary_Analysis():
         self.habituation_dictionary = habituation_dict
 
         fish_logger.log(Fish_Log.INFO, f"Habituation Analysis : Habituation Assays {', '.join(asy_nm for asy_nm in assays_found)}, Stimuli Found {', '.join(stim_nm for stim_nm in stimuli_found)}, Made Habituation Dictionary {True if self.habituation_dictionary else False}")
+
+
+    def prepulse_inhibition(self):
+        ppi_dict = {}
+
+        ppi_assays = ['ppi_100x_4peak']
+
+        if self.sauron_primary_analysis.user_analysis_group == 'treatment':
+            for treatment in self.sauron_primary_analysis.split_dictionary.keys():
+                for concentration in self.sauron_primary_analysis.split_dictionary[treatment].keys():
+                    for assay in self.sauron_primary_analysis.split_dictionary[treatment][concentration].keys():
+                        if assay in ppi_assays:
+                            index_d = {}
+                            
+                            for stimulus_name, stimulus_avg, stimulus_st_dev, stim_st, stim_ed in self.sauron_primary_analysis.split_dictionary[treatment][concentration][assay][2]:
+                                if stimulus_name not in index_d.keys():
+                                    index_d[stimulus_name] = 1
+                                else:
+                                    index_d[stimulus_name] += 1 
+
+                                index = index_d[stimulus_name]
+                                
+                                asy_stm_i = f"{assay} {stimulus_name}_{index+1}"
+
+                                if asy_stm_i not in ppi_dict.keys():
+                                    ppi_dict[asy_stm_i] = {treatment : {concentration : (stimulus_avg, stimulus_st_dev)}}
+                                elif treatment not in ppi_dict[asy_stm_i].keys():
+                                    ppi_dict[asy_stm_i].update({treatment : {concentration : (stimulus_avg, stimulus_st_dev)}})
+                                else:
+                                    ppi_dict[asy_stm_i][treatment].update({concentration : (stimulus_avg, stimulus_st_dev)})
+                                
+                                
+
+        else:
+            for group in self.sauron_primary_analysis.split_dictionary.keys():
+                for assay in self.sauron_primary_analysis.split_dictionary[group].keys():
+                    if assay in ppi_assays:
+                        index_d = {}
+                        for stimulus_name, stimulus_avg, stimulus_st_dev, stim_st, stim_ed in self.sauron_primary_analysis.split_dictionary[group][assay][2]:
+                            if stimulus_name not in index_d.keys():
+                                index_d[stimulus_name] = 1
+                            else:
+                                index_d[stimulus_name] += 1
+
+                            index = index_d[stimulus_name] 
+                        
+                            asy_stm_i = f"{assay} {stimulus_name}_{index+1}"
+
+                            if asy_stm_i not in ppi_dict.keys():
+                                ppi_dict[asy_stm_i] = {group : (stimulus_avg, stimulus_st_dev)}
+                            else: 
+                                ppi_dict[asy_stm_i].update({group : (stimulus_avg, stimulus_st_dev)})
+                            
+        
+        self.prepulse_inhibition_dictionary = ppi_dict
 
 
     def stimulus_dict_calcs(self, stim_dict):
@@ -1312,12 +1582,80 @@ class Sauron_Secondary_Analysis():
                 drop_i = len(stimulus_average_list)
 
             if stim_vals and stim_st_devs:
-                stimulus_slope, stimulus_intercept, stimulus_r_squared, average_st_dev = self.line_calculator(stim_vals, stim_st_devs)
+                stimulus_slope, stimulus_intercept, stimulus_r_squared, average_st_dev = self.weighted_line_calculator(stim_vals, stim_st_devs)
                 
                 result_dict[stimulus_name] = (stimulus_average_list, stimulus_st_dev_list, stimulus_slope, stimulus_intercept, stimulus_r_squared, average_st_dev, drop_i)
 
         return result_dict
     
+
+    def responsive_calculator(self, assay_tup, tpe='default'):
+        if tpe == 'default':
+            value = self.stimuli_responsive_calculator(assay_tup[2])
+
+        elif tpe == 'assay_mi_average':
+            value = round(float(sum(assay_tup[0]) / len(assay_tup[0])), 2)
+            st_dev = self.basic_calculator(assay_tup[0], "st_dev")
+            value = (value, st_dev)
+
+        elif tpe == 'assay_mi_median':
+            value, st_dev = self.med_calc(assay_tup[0], std_list=assay_tup[2])
+            value = (value, st_dev)
+
+        elif tpe == 'assay_mi_max':
+            value = max(assay_tup[0])   
+            for idx in range(len(assay_tup[0])):
+                if assay_tup[0][idx] == value:
+                    st_dev = assay_tup[1][idx]
+            value = (value, st_dev)
+
+        elif tpe == 'assay_mi_sum':
+            value = sum(assay_tup[0])
+            st_dev = sum(assay_tup[1])
+            value = (value, st_dev)
+
+        elif tpe == 'stimulus_average':
+            value = self.stimuli_responsive_calculator(assay_tup[2], ty='average')
+
+        elif tpe == 'stimulus_median':
+            value = self.stimuli_responsive_calculator(assay_tup[2], ty='median')
+
+        elif tpe == 'stimulus_max':
+            value = self.stimuli_responsive_calculator(assay_tup[2], ty='max')
+
+        elif tpe == 'stimulus_min':
+            value = self.stimuli_responsive_calculator(assay_tup[2], ty='min')
+
+        elif tpe == 'stimulus_sum':
+            value = self.stimuli_responsive_calculator(assay_tup[2], ty='sum')
+
+
+        return value
+    
+
+    def stimuli_responsive_calculator(self, stimulus_list, ty='average'):
+        result_dict = {}
+
+        stimulus_names = [stim[0] for stim in stimulus_list]
+        stimulus_names = set(stimulus_names)
+
+        stim_resp_dict = {}
+        
+        for name in stimulus_names:
+            s_lst = []
+            for stimulus in stimulus_list:
+                if stimulus[0] == name:
+                    s_tup = (stimulus[1], stimulus[2])
+                    s_lst.append(s_tup)
+            stim_resp_dict[name] = s_lst
+
+        for stim_name, stim_list in stim_resp_dict.items():
+            response, st_dev = self.stim_tup_calculator(stim_list, ty)
+            
+            result_dict[stim_name] = (response, st_dev)
+
+        return result_dict
+        
     
     def line_calculator(self, mi_list, st_dev_list):
         x_vals = [x + 1 for x in range(len(mi_list))]
@@ -1327,6 +1665,29 @@ class Sauron_Secondary_Analysis():
         avg_st_dev = self.calculate_avg_st_dev(st_dev_list)
 
         return slope, intercept, r_sq, avg_st_dev
+    
+
+    def weighted_line_calculator(self, y_lst, st_dev_lst):
+        x_lst = [x + 1 for x in range(len(y_lst))]
+        weights = [1 / (st_dev**2) if st_dev else 0.01 for st_dev in st_dev_lst]
+        total_weight = sum(weights)
+
+        weighted_x = sum(w * x_i for w, x_i in zip(weights, x_lst))
+        weighted_y = sum(w * y_i for w, y_i in zip(weights, y_lst))
+
+        mean_x_weight = weighted_x / total_weight
+        mean_y_weight = weighted_y / total_weight
+
+        numerator = sum(w * (x_i - mean_x_weight) * (y_i - mean_y_weight) for w, x_i, y_i in zip(weights, x_lst, y_lst))
+        denominator = sum(w * (x_i - mean_x_weight) ** 2 for w, x_i in zip(weights, x_lst))
+        slope = numerator / denominator
+
+        intercept = mean_y_weight - slope * mean_x_weight
+        slope_error = (1 / denominator) ** 0.5
+
+        r_sq = self.calculate_r_squared(slope, intercept, x_lst, y_lst)
+
+        return slope, intercept, r_sq, slope_error
     
 
     def calculate_slope(self, x_list, mi_list, intrcpt=False):
@@ -1373,23 +1734,95 @@ class Sauron_Secondary_Analysis():
         return avg
 
 
+    def basic_calculator(self, lst_v, operation):
+        calculator = {
+            "average" : round(float(sum(lst_v) / len(lst_v)), 2),
+            "median" : self.med_calc(lst_v),
+            "max" : max(lst_v),
+            "min" : min(lst_v),
+            "sum" : sum(lst_v),
+            "st_dev" : self.st_dev_calc(lst_v)
+        }
+
+        return calculator[operation]
+    
+
+    def stim_tup_calculator(self, stim_tup_list, operation):
+        value = 0
+        st_dev = 0
+
+        if operation == 'average':
+            stim_v = [s[0] for s in stim_tup_list]
+            stim_std = [s[1] for s in stim_tup_list]
+
+            value = self.basic_calculator(stim_v, 'average')
+            st_dev = self.basic_calculator(stim_v, 'st_dev')
+        
+        elif operation == 'median':
+            indx_st_tup = sorted((value, st_dev, index) for index, (value, st_dev) in enumerate(stim_tup_list))
+            
+            n = len(indx_st_tup)
+
+            if n % 2 == 1:
+                value = indx_st_tup[n // 2][0]
+                st_dev = indx_st_tup[n // 2][1]
+            else:
+                mid1_value, mid1_stdev, mid1_index = indx_st_tup[n // 2 - 1]
+                mid2_value, mid2_stdev, mid2_index = indx_st_tup[n // 2]
+                
+                value = (mid1_value + mid2_value) / 2
+                st_dev = (mid1_stdev + mid2_stdev) / 2 
+    
+        elif operation == 'max':
+            value = 0
+            for s_t in stim_tup_list:
+                if s_t[0] > value:
+                    value = s_t[0]
+                    st_dev = s_t[1]
+        
+        elif operation == 'min':
+            stim_v = [s[0] for s in stim_tup_list]
+            value = max(stim_v)
+            for s_t in stim_tup_list:
+                if s_t[0] < value:
+                    value = s_t[0]
+                    st_dev = s_t[1]
+
+        elif operation == 'sum':
+            stim_v = [s[0] for s in stim_tup_list]
+            stim_std = [s[1] for s in stim_tup_list]
+
+            value = self.basic_calculator(stim_v, 'sum')
+            st_dev = self.basic_calculator(stim_std, 'sum')
+            
+        return value, st_dev
+    
+
+    def med_calc(self, median_mi_list, std_list=False):
+        sorted_data = sorted(median_mi_list)
+        n = len(sorted_data)
+        
+        if n % 2 == 1:
+            median = sorted_data[n // 2]
+        else:
+            median = (sorted_data[n // 2 - 1] + sorted_data[n // 2]) / 2
+        
+        if not std_list:
+            return median
+        
+        sorted_std = [s for _, s in sorted(zip(median_mi_list, std_list))]  # sort std_list to match sorted_data
+        if n % 2 == 1:
+            median_std = sorted_std[n // 2]
+        else:
+            median_std = (sorted_std[n // 2 - 1] + sorted_std[n // 2]) / 2
+    
+        return median, median_std
 
 
-class Mcam_Primary_Analysis():
+    def st_dev_calc(self, mi_list):
+        n = len(mi_list)
+        return ((sum((x - (sum(mi_list) / n)) ** 2 for x in mi_list) / n) ** 0.5) if n > 0 else 0
 
-    # % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ % ^ %
-    # HELLO, name and type 
-    # # the main purpose
-    # # the structure of the class
-    # # inputs to the class
-    # # the flow through the class
-    # # outputs of the class
-    # # uses of the class
-    # % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ % ~ %
-
-
-    def __init__(self):
-        pass
 
 
 

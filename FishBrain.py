@@ -47,7 +47,7 @@ class Fish_Analysis():
     def __init__(self, user_response_dict, split_str):
         self.subconscious_warnings = ["NO_STIM"]
         self.no_stim_i = 0  
-        self.no_stim_search_status = True
+        self.no_stim_search_status = False
 
         self.user_responses = user_response_dict
         self.split_str = split_str
@@ -61,8 +61,7 @@ class Fish_Analysis():
 
         if self.user_responses['analysis_machine'] == 'sauron':
             self.sauron_pipeline()
-        
-        else:
+        elif self.user_responses['analysis_machine'] == 'mcam':
             self.mcam_pipeline()
 
         if self.warning: 
@@ -92,45 +91,45 @@ class Fish_Analysis():
         elif self.user_responses['visualize_secondary'] == 'yes' and self.user_responses['analysis_type'] == 'biological':
             DataVisualization.Sauron_Plot_Visualization(self.user_responses['analysis_type'], self.user_responses['run_numbers'], 
                                                                                   self.user_responses['battery_plot'], self.user_responses['analysis_group'], 
-                                                                                  self.user_responses['analysis_calculations'], self.user_responses['specific_treatment'], 
+                                                                                  self.user_responses['analysis_calculations'], self.user_responses['visualize_battery'], self.user_responses['specific_treatment'], 
                                                                                   self.user_responses['user_treatment'], self.user_responses['specific_assay'], 
                                                                                   self.user_responses['user_assay'], self.user_responses['isolate_stimuli'], 
                                                                                   self.user_responses['name_title'], self.user_responses['user_title'], 
                                                                                   self.user_responses['name_file'], self.user_responses['user_file'],
-                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_habituation'],
-                                                                                  self.battery_info[0], self.biological_info, self.split_str) 
+                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_control'],
+                                                                                  self.battery_info[0], self.secondary_info, self.split_str) 
             
         elif self.user_responses['visualize_secondary'] == 'yes':
             DataVisualization.Sauron_Plot_Visualization(self.user_responses['analysis_type'], self.user_responses['run_number'], 
                                                                                   self.user_responses['battery_plot'], self.user_responses['analysis_group'], 
-                                                                                  self.user_responses['analysis_calculations'], self.user_responses['specific_treatment'], 
+                                                                                  self.user_responses['analysis_calculations'], self.user_responses['visualize_battery'], self.user_responses['specific_treatment'], 
                                                                                   self.user_responses['user_treatment'], self.user_responses['specific_assay'], 
                                                                                   self.user_responses['user_assay'], self.user_responses['isolate_stimuli'], 
                                                                                   self.user_responses['name_title'], self.user_responses['user_title'], 
                                                                                   self.user_responses['name_file'], self.user_responses['user_file'],
-                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_habituation'],
+                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_control'],
                                                                                   self.battery_info, self.secondary_info, self.split_str)
         
         elif self.user_responses['analysis_type'] == 'biological':
             DataVisualization.Sauron_Plot_Visualization(self.user_responses['analysis_type'], self.user_responses['run_numbers'], 
                                                                                   self.user_responses['battery_plot'], self.user_responses['analysis_group'], 
-                                                                                  self.user_responses['analysis_calculations'], self.user_responses['specific_treatment'], 
+                                                                                  self.user_responses['analysis_calculations'], self.user_responses['visualize_battery'], self.user_responses['specific_treatment'], 
                                                                                   self.user_responses['user_treatment'], self.user_responses['specific_assay'], 
                                                                                   self.user_responses['user_assay'], self.user_responses['isolate_stimuli'], 
                                                                                   self.user_responses['name_title'], self.user_responses['user_title'], 
                                                                                   self.user_responses['name_file'], self.user_responses['user_file'],
-                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_habituation'],
+                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_control'],
                                                                                   self.battery_info[0], self.biological_info, self.split_str)
 
         else:
             DataVisualization.Sauron_Plot_Visualization(self.user_responses['analysis_type'], self.user_responses['run_number'], 
                                                                                   self.user_responses['battery_plot'], self.user_responses['analysis_group'], 
-                                                                                  self.user_responses['analysis_calculations'], self.user_responses['specific_treatment'], 
+                                                                                  self.user_responses['analysis_calculations'], self.user_responses['visualize_battery'], self.user_responses['specific_treatment'], 
                                                                                   self.user_responses['user_treatment'], self.user_responses['specific_assay'], 
                                                                                   self.user_responses['user_assay'], self.user_responses['isolate_stimuli'], 
                                                                                   self.user_responses['name_title'], self.user_responses['user_title'], 
                                                                                   self.user_responses['name_file'], self.user_responses['user_file'],
-                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_habituation'],
+                                                                                  self.user_responses['visualize_secondary'], self.user_responses['user_control'],
                                                                                   self.battery_info, self.analyzed_info, self.split_str)
 
 
@@ -151,6 +150,7 @@ class Fish_Analysis():
             
             if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 if self.user_responses['secondary_calculations'] != 'no':
+                    self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.analyzed_info, self.split_str)
                     self.sauron_secondary_analysis_funct()
 
         elif self.user_responses['analysis_type'] == 'biological':
@@ -176,7 +176,8 @@ class Fish_Analysis():
 
             if not self.warning or len(self.warning) == 1 and 'UNKNOWN_TREATMENT' in self.warning:
                 if self.user_responses['secondary_calculations'] != 'no':
-                    self.sauron_bio_secondary_analysis_funct()
+                    self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.biological_info, self.split_str)
+                    self.sauron_secondary_analysis_funct()
 
  
     def sauron_battery_funct(self, battery_number, n_frm=None):
@@ -233,21 +234,21 @@ class Fish_Analysis():
 
 
     def sauron_secondary_analysis_funct(self):
-        self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.analyzed_info, self.split_str)
+        if self.user_responses['secondary_calculations'] == 'responsiveness' or self.user_responses['secondary_calculations'] == 'all':
+            self.secondary_info.responsiveness()
+
+        if self.user_responses['secondary_calculations'] == 'ppi' or self.user_responses['secondary_calculations'] == 'all':
+            self.secondary_info.prepulse_inhibition()
         
-        if self.user_responses['secondary_calculations'] == 'habituation':
+        if self.user_responses['secondary_calculations'] == 'habituation' or self.user_responses['secondary_calculations'] == 'all':
             self.secondary_info.habituation()
+            self.secondary_info.habituation_response()
 
-        if self.secondary_info.warning:
-            for warning in self.secondary_info.warning:
-                self.warning[warning] = self.secondary_info.warning[warning]
+            #if self.user_responses['secondary_calculations'] == 'all' or self.user_responses['secondary_calculations'] == 'habituation':
+            #    self.secondary_info.habituation_response()
 
-    
-    def sauron_bio_secondary_analysis_funct(self):
-        self.secondary_info = DataAnalysis.Sauron_Secondary_Analysis(self.biological_info, self.split_str)
-
-        if self.user_responses['secondary_calculations'] == 'habituation':
-            self.secondary_info.habituation()
+        if self.user_responses['secondary_grouping'] == 'yes':
+            self.secondary_info.grouping()
 
         if self.secondary_info.warning:
             for warning in self.secondary_info.warning:
