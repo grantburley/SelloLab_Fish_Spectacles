@@ -156,8 +156,6 @@ Once the file is called, you, the user, should be presented with several prompts
     question asks if the graphs made by the secondary analysis should be made. These 
     graphs will be made instead of the full mi trace graphs.
 
-Once the information is input to the script, initial calculations are performed. If 
-it is possible to graph multiple results from the data, 
 
 
 
